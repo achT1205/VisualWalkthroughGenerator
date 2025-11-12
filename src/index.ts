@@ -93,12 +93,23 @@ async function main() {
         const normalized = normalizeUrl(url);
         if (!urlSet.has(normalized)) {
           urlSet.add(normalized);
-          urls.push(url); // Keep original URL for display, but track normalized for dedup
+          urls.push(url);
+        } else {
+          console.log(`   ⚠️  Skipping duplicate URL: ${url}`);
         }
       }
       
-      // Remove duplicates from urls array
-      urls = Array.from(new Set(urls.map(u => normalizeUrl(u))));
+      // Final deduplication pass (double-check)
+      const finalUrls: string[] = [];
+      const finalSet = new Set<string>();
+      for (const url of urls) {
+        const normalized = normalizeUrl(url);
+        if (!finalSet.has(normalized)) {
+          finalSet.add(normalized);
+          finalUrls.push(url);
+        }
+      }
+      urls = finalUrls;
 
       if (urls.length === 0) {
         console.error("❌ No pages discovered during crawl. Exiting.");

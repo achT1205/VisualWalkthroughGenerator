@@ -143,16 +143,28 @@ export async function captureScreenshots(
           if (hasForms && config.crawl?.autoFillForms !== false) {
             console.log(`   📋 Form detected, capturing before and after...`);
             
+            // Create comprehensive filename for before form (based on URL path)
+            // Extract meaningful path from URL (e.g., /onboarding -> onboarding_before_form)
+            let urlPath = '';
+            try {
+              const urlObj = new URL(url);
+              urlPath = urlObj.pathname.replace(/^\//, '').replace(/\//g, '_').replace(/[^a-zA-Z0-9_-]/g, '_') || 'home';
+            } catch {
+              urlPath = 'page';
+            }
+            const beforeTitle = urlPath ? `${urlPath}_before_form` : `${sanitizedTitle}_before_form`;
+            const beforeSanitizedTitle = sanitizeFilename(beforeTitle);
+            
             // Capture BEFORE form submission
             beforeFormFilename = path.join(
               config.imagesDir,
-              `${sanitizedTitle}_${Date.now()}.png`
+              `${beforeSanitizedTitle}_${Date.now()}.png`
             );
             await page.screenshot({
               path: beforeFormFilename,
               fullPage: config.screenshotOptions.fullPage,
             });
-            console.log(`   📸 Captured before form: ${sanitizedTitle}`);
+            console.log(`   📸 Captured before form: ${beforeSanitizedTitle}`);
 
             // Fill and submit form
             const formFilled = await autoFillForm(page);
@@ -167,18 +179,22 @@ export async function captureScreenshots(
               
               // Get new title after form submission (might have changed)
               const newTitle = (await page.title()) || title;
-              const newSanitizedTitle = sanitizeFilename(newTitle);
+              
+              // Create comprehensive filename based on URL path and action
+              const urlPath = new URL(currentUrl).pathname.replace(/^\//, '').replace(/\//g, '_') || 'home';
+              const comprehensiveTitle = urlPath ? `${urlPath}_after_form` : `form_submitted_${Date.now()}`;
+              const newSanitizedTitle = sanitizeFilename(comprehensiveTitle);
               
               // Capture AFTER form submission
               afterFormFilename = path.join(
                 config.imagesDir,
-                `${newSanitizedTitle}-action_${Date.now()}.png`
+                `${newSanitizedTitle}_${Date.now()}.png`
               );
               await page.screenshot({
                 path: afterFormFilename,
                 fullPage: config.screenshotOptions.fullPage,
               });
-              console.log(`   📸 Captured after form: ${newSanitizedTitle}-action`);
+              console.log(`   📸 Captured after form: ${newSanitizedTitle}`);
               
               // Use the post-form state as the main screenshot
               // Use the actual current URL, not the original
