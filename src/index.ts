@@ -60,8 +60,16 @@ async function main() {
         routesFromCode = codeDocs
           .filter((d) => d.routes && d.routes.length > 0)
           .flatMap((d) => d.routes || []);
+        
+        // Deduplicate routes
+        routesFromCode = Array.from(new Set(routesFromCode));
+        
         if (routesFromCode.length > 0) {
-          console.log(`   Found ${routesFromCode.length} route(s) in codebase\n`);
+          console.log(`   Found ${routesFromCode.length} unique route(s) in codebase:`);
+          routesFromCode.forEach((route, i) => {
+            console.log(`      ${i + 1}. ${route}`);
+          });
+          console.log("");
         }
       }
 
