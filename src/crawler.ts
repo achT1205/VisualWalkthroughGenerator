@@ -11,6 +11,7 @@ export interface CrawlOptions {
   sameDomainOnly: boolean;
   excludePatterns: string[];
   includePatterns: string[];
+  routesFromCode?: string[]; // Routes extracted from codebase analysis
 }
 
 export interface CrawlResult {
@@ -75,14 +76,16 @@ function isSameDomain(url1: string, url2: string): boolean {
 }
 
 /**
- * Extract all links from a page
+ * Extract all links from a page (including SPA routes)
  */
 async function extractLinks(page: Page, baseUrl: string): Promise<string[]> {
   try {
     const links = await page.evaluate((base) => {
-      const anchors = Array.from(document.querySelectorAll("a[href]"));
       const urls: string[] = [];
+      const baseUrlObj = new URL(base);
 
+      // 1. Traditional anchor tags
+      const anchors = Array.from(document.querySelectorAll("a[href]"));
       for (const anchor of anchors) {
         const href = (anchor as HTMLAnchorElement).href;
         if (href && href.trim()) {
@@ -90,15 +93,79 @@ async function extractLinks(page: Page, baseUrl: string): Promise<string[]> {
         }
       }
 
-      // Also try to find links in data attributes (for SPAs)
-      const spaLinks = Array.from(document.querySelectorAll("[data-href], [data-link], [data-url]"));
+      // 2. React Router Links (often have 'to' attribute or data attributes)
+      const reactLinks = Array.from(document.querySelectorAll("[to], [href], button[onclick]"));
+      for (const element of reactLinks) {
+        const to = (element as HTMLElement).getAttribute('to');
+        const href = (element as HTMLElement).getAttribute('href');
+        const onClick = (element as HTMLElement).getAttribute('onclick');
+        
+        if (to && to.trim()) {
+          // Convert relative path to absolute
+          const absoluteUrl = to.startsWith('/') 
+            ? `${baseUrlObj.origin}${to}`
+            : new URL(to, base).toString();
+          urls.push(absoluteUrl);
+        }
+        if (href && href.trim() && !href.startsWith('#')) {
+          urls.push(href);
+        }
+        // Try to extract URLs from onclick handlers
+        if (onClick) {
+          const urlMatch = onClick.match(/['"`]([\/][^'"`]+)['"`]/);
+          if (urlMatch) {
+            urls.push(`${baseUrlObj.origin}${urlMatch[1]}`);
+          }
+        }
+      }
+
+      // 3. Data attributes (for SPAs)
+      const spaLinks = Array.from(document.querySelectorAll("[data-href], [data-link], [data-url], [data-to], [data-route]"));
       for (const element of spaLinks) {
         const href = (element as HTMLElement).getAttribute('data-href') || 
                      (element as HTMLElement).getAttribute('data-link') ||
-                     (element as HTMLElement).getAttribute('data-url');
+                     (element as HTMLElement).getAttribute('data-url') ||
+                     (element as HTMLElement).getAttribute('data-to') ||
+                     (element as HTMLElement).getAttribute('data-route');
         if (href && href.trim()) {
+          const absoluteUrl = href.startsWith('/') 
+            ? `${baseUrlObj.origin}${href}`
+            : new URL(href, base).toString();
+          urls.push(absoluteUrl);
+        }
+      }
+
+      // 4. Navigation elements (nav, menu, etc.)
+      const navElements = Array.from(document.querySelectorAll("nav a, menu a, [role='navigation'] a, [role='menuitem']"));
+      for (const nav of navElements) {
+        const href = (nav as HTMLAnchorElement).href || (nav as HTMLElement).getAttribute('href');
+        if (href && href.trim() && !href.startsWith('#')) {
           urls.push(href);
         }
+      }
+
+      // 5. Try to find router configuration in window object (for React Router, Vue Router, etc.)
+      try {
+        // React Router
+        if ((window as any).__REACT_ROUTER__ || (window as any).ReactRouter) {
+          const routes = (window as any).__REACT_ROUTER__?.routes || [];
+          routes.forEach((route: any) => {
+            if (route.path) {
+              urls.push(`${baseUrlObj.origin}${route.path}`);
+            }
+          });
+        }
+        // Vue Router
+        if ((window as any).__VUE_ROUTER__) {
+          const routes = (window as any).__VUE_ROUTER__.options?.routes || [];
+          routes.forEach((route: any) => {
+            if (route.path) {
+              urls.push(`${baseUrlObj.origin}${route.path}`);
+            }
+          });
+        }
+      } catch (e) {
+        // Ignore errors accessing window objects
       }
 
       return urls;
@@ -153,6 +220,21 @@ export async function crawlWebsite(
 
   console.log(`🕷️  Starting crawl from: ${startUrl}`);
   console.log(`   Max depth: ${options.maxDepth}, Max pages: ${options.maxPages}\n`);
+
+  // Add routes from codebase if available (for SPAs)
+  if (options.routesFromCode && options.routesFromCode.length > 0) {
+    console.log(`   Found ${options.routesFromCode.length} route(s) from codebase analysis\n`);
+    const baseUrlObj = new URL(startUrl);
+    for (const route of options.routesFromCode) {
+      const routeUrl = route.startsWith('/')
+        ? `${baseUrlObj.origin}${route}`
+        : new URL(route, startUrl).toString();
+      const normalizedRoute = normalizeUrl(routeUrl);
+      if (!visited.has(normalizedRoute) && isSameDomain(normalizedRoute, startUrl)) {
+        toVisit.push({ url: normalizedRoute, depth: 0 });
+      }
+    }
+  }
 
   while (toVisit.length > 0 && discovered.length < options.maxPages) {
     const { url, depth } = toVisit.shift()!;
@@ -216,15 +298,28 @@ export async function crawlWebsite(
         }
       }
 
-      // Wait a bit for dynamic content to load (especially for SPAs)
-      await page.waitForTimeout(2000);
-
-      // Try to wait for navigation/links to be ready
+      // Wait for SPA to fully load - try networkidle for SPAs
       try {
-        await page.waitForSelector("a[href]", { timeout: 5000 });
+        await page.waitForLoadState("networkidle", { timeout: 5000 });
+      } catch {
+        // Fallback to timeout if networkidle doesn't work
+        await page.waitForTimeout(3000);
+      }
+
+      // Try to wait for navigation/links to be ready (multiple selectors for SPAs)
+      try {
+        await Promise.race([
+          page.waitForSelector("a[href]", { timeout: 5000 }),
+          page.waitForSelector("[to]", { timeout: 5000 }),
+          page.waitForSelector("nav", { timeout: 5000 }),
+          page.waitForSelector("[role='navigation']", { timeout: 5000 }),
+        ]);
       } catch {
         // Continue even if no links found
       }
+      
+      // Additional wait for dynamic content
+      await page.waitForTimeout(1000);
 
       // Extract links
       const links = await extractLinks(page, url);

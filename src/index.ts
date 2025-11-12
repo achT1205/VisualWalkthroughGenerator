@@ -29,6 +29,7 @@ async function main() {
 
   let urls: string[] = [];
   const crawlConfig = getCrawlConfig();
+  const codeAnalysisConfig = getCodeAnalysisConfig(); // Get early for route extraction
 
   // Check if crawl mode is enabled
   if (crawlConfig.enabled) {
@@ -50,8 +51,28 @@ async function main() {
     const page = await context.newPage();
 
     try {
+      // If code analysis is enabled, extract routes first to help with crawling
+      let routesFromCode: string[] = [];
+      if (codeAnalysisConfig.enabled && codeAnalysisConfig.codebasePath) {
+        console.log("   Extracting routes from codebase to improve crawling...\n");
+        const codeDocs = await analyzeCodebase(codeAnalysisConfig);
+        // Extract all routes found in code
+        routesFromCode = codeDocs
+          .filter((d) => d.routes && d.routes.length > 0)
+          .flatMap((d) => d.routes || []);
+        if (routesFromCode.length > 0) {
+          console.log(`   Found ${routesFromCode.length} route(s) in codebase\n`);
+        }
+      }
+
+      // Add routes to crawl config
+      const enhancedCrawlConfig = {
+        ...crawlConfig,
+        routesFromCode,
+      };
+
       // Crawl the website
-      const crawlResult = await crawlWebsite(page, startUrl, crawlConfig);
+      const crawlResult = await crawlWebsite(page, startUrl, enhancedCrawlConfig);
       urls = crawlResult.urls;
 
       if (urls.length === 0) {
@@ -76,9 +97,6 @@ async function main() {
   console.log(`📋 Processing ${urls.length} URL(s):`);
   urls.forEach((url, i) => console.log(`   ${i + 1}. ${url}`));
   console.log("");
-
-  // Get code analysis config
-  const codeAnalysisConfig = getCodeAnalysisConfig();
 
   // Merge URLs into config
   const config: Config = {
