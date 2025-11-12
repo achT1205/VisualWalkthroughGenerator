@@ -159,6 +159,7 @@ visual-walkthrough-generator/
 │   ├── index.ts            # Main entry point
 │   ├── playwright.ts       # Screenshot capture logic
 │   ├── crawler.ts          # Website crawling/discovery
+│   ├── codeAnalyzer.ts     # Codebase analysis and documentation
 │   ├── openaiClient.ts     # GPT-4o Vision API integration
 │   ├── markdownBuilder.ts  # Markdown generation
 │   └── config.ts           # Configuration and URL management
