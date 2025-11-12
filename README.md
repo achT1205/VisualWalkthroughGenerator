@@ -7,6 +7,7 @@ An AI-powered CLI tool that automatically documents web applications by taking s
 - 🤖 **AI-Powered Descriptions**: Uses GPT-4o Vision to generate clear, user-friendly descriptions of web pages
 - 📸 **Automated Screenshots**: Captures full-page screenshots using Playwright
 - 🕷️ **Auto-Crawl Mode**: Automatically discovers and documents all pages on a website
+- 📚 **Codebase Analysis**: Analyzes source code to extract components, routes, APIs, and generate documentation
 - 📝 **Markdown Output**: Generates beautiful, structured Markdown documentation
 - 🗺️ **Navigation Diagrams**: Automatically creates Mermaid diagrams for multi-page walkthroughs
 - 🚀 **Easy CLI**: Simple command-line interface with flexible URL input
@@ -96,6 +97,43 @@ npm run walkthrough https://example.com --crawl --max-depth 2 --max-pages 20
 
 # Crawl excluding specific paths
 npm run walkthrough https://example.com --crawl --exclude "/admin,/private"
+```
+
+#### Codebase Analysis Mode 📚
+
+Analyze the application's source code to extract components, routes, APIs, and generate code documentation:
+
+**Option 1: Use the wrapper script (Windows - Recommended)**
+```bash
+walkthrough.cmd https://example.com --analyze-code --codebase-path ./src
+```
+
+**Option 2: Direct node command**
+```bash
+npm run build
+node dist/index.js https://example.com --analyze-code --codebase-path ./src
+```
+
+**Code Analysis Options:**
+- `--analyze-code` or `--code`: Enable code analysis mode
+- `--codebase-path <path>`: Path to codebase directory (default: `./src`)
+- `--code-exclude <patterns>`: Comma-separated patterns to exclude (default: excludes node_modules, .git, dist, etc.)
+- `--code-include <patterns>`: Comma-separated patterns to include (optional)
+- `--max-file-size <kb>`: Maximum file size to analyze in KB (default: 100KB)
+
+**Examples:**
+```bash
+# Analyze codebase with default settings
+walkthrough.cmd https://example.com --analyze-code
+
+# Analyze specific codebase path
+walkthrough.cmd https://example.com --analyze-code --codebase-path ../my-app/src
+
+# Analyze only components and routes
+walkthrough.cmd https://example.com --analyze-code --code-include "/components,/routes"
+
+# Combine crawl + code analysis
+walkthrough.cmd https://example.com --crawl --analyze-code --codebase-path ./src
 ```
 
 #### Development Mode

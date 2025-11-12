@@ -8,10 +8,12 @@ import { captureScreenshots } from "./playwright.js";
 import { describeScreenshot } from "./openaiClient.js";
 import { buildMarkdown, type PageData } from "./markdownBuilder.js";
 import { crawlWebsite } from "./crawler.js";
+import { analyzeCodebase, type CodeDocumentation } from "./codeAnalyzer.js";
 import {
   getUrlsFromArgs,
   defaultConfig,
   getCrawlConfig,
+  getCodeAnalysisConfig,
   type Config,
 } from "./config.js";
 
@@ -71,11 +73,15 @@ async function main() {
   urls.forEach((url, i) => console.log(`   ${i + 1}. ${url}`));
   console.log("");
 
+  // Get code analysis config
+  const codeAnalysisConfig = getCodeAnalysisConfig();
+
   // Merge URLs into config
   const config: Config = {
     ...defaultConfig,
     urls,
     crawl: crawlConfig.enabled ? crawlConfig : undefined,
+    codeAnalysis: codeAnalysisConfig.enabled ? codeAnalysisConfig : undefined,
   };
 
   try {
@@ -115,9 +121,18 @@ async function main() {
 
     console.log(`\n✅ Generated ${pages.length} description(s)\n`);
 
-    // Step 3: Build markdown documentation
-    console.log("📝 Step 3: Building markdown documentation...\n");
-    await buildMarkdown(pages, config);
+    // Step 3: Analyze codebase (if enabled)
+    let codeDocs: CodeDocumentation[] = [];
+    if (config.codeAnalysis?.enabled) {
+      console.log("📚 Step 3: Analyzing codebase...\n");
+      codeDocs = await analyzeCodebase(config.codeAnalysis);
+      console.log(`\n✅ Analyzed ${codeDocs.length} code file(s)\n`);
+    }
+
+    // Step 4: Build markdown documentation
+    const stepNumber = config.codeAnalysis?.enabled ? "4" : "3";
+    console.log(`📝 Step ${stepNumber}: Building markdown documentation...\n`);
+    await buildMarkdown(pages, config, codeDocs);
 
     // Summary
     console.log("\n" + "=".repeat(50));

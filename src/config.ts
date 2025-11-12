@@ -11,9 +11,18 @@ export interface CrawlConfig {
   includePatterns: string[];
 }
 
+export interface CodeAnalysisConfig {
+  enabled: boolean;
+  codebasePath?: string;
+  includePatterns: string[];
+  excludePatterns: string[];
+  maxFileSize: number;
+}
+
 export interface Config {
   urls: string[];
   crawl?: CrawlConfig;
+  codeAnalysis?: CodeAnalysisConfig;
   outputDir: string;
   imagesDir: string;
   outputFile: string;
@@ -97,6 +106,53 @@ export function getCrawlConfig(): CrawlConfig {
     sameDomainOnly: true, // Always crawl same domain only for safety
     excludePatterns,
     includePatterns,
+  };
+}
+
+/**
+ * Check if code analysis is enabled via CLI flags
+ */
+export function isCodeAnalysisEnabled(): boolean {
+  const args = process.argv.slice(2);
+  return args.includes("--analyze-code") || args.includes("--code");
+}
+
+/**
+ * Get code analysis configuration from CLI or defaults
+ */
+export function getCodeAnalysisConfig(): CodeAnalysisConfig {
+  const args = process.argv.slice(2);
+  
+  // Parse --codebase-path
+  const codebasePathIndex = args.indexOf("--codebase-path");
+  const codebasePath = codebasePathIndex !== -1 && args[codebasePathIndex + 1]
+    ? args[codebasePathIndex + 1]
+    : undefined;
+
+  // Parse --code-exclude patterns
+  const excludeIndex = args.indexOf("--code-exclude");
+  const excludePatterns = excludeIndex !== -1 && args[excludeIndex + 1]
+    ? args[excludeIndex + 1].split(",").map((p) => p.trim())
+    : ["node_modules", ".git", "dist", "build", ".next", ".cache"];
+
+  // Parse --code-include patterns
+  const includeIndex = args.indexOf("--code-include");
+  const includePatterns = includeIndex !== -1 && args[includeIndex + 1]
+    ? args[includeIndex + 1].split(",").map((p) => p.trim())
+    : [];
+
+  // Parse --max-file-size (in KB)
+  const maxFileSizeIndex = args.indexOf("--max-file-size");
+  const maxFileSizeKB = maxFileSizeIndex !== -1 && args[maxFileSizeIndex + 1]
+    ? parseInt(args[maxFileSizeIndex + 1], 10)
+    : 100; // Default 100KB
+
+  return {
+    enabled: isCodeAnalysisEnabled(),
+    codebasePath: codebasePath || "./src",
+    includePatterns,
+    excludePatterns,
+    maxFileSize: maxFileSizeKB * 1024, // Convert to bytes
   };
 }
 
