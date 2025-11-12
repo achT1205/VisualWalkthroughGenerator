@@ -168,7 +168,7 @@ npm start
 ## 🚧 Future Enhancements
 
 - [x] Auto-crawl internal links ✅
-- [ ] PDF export option
+- [ ] JIRA integration
 - [ ] Confluence API integration
 - [ ] Custom prompt templates
 - [ ] Batch processing with progress bars
