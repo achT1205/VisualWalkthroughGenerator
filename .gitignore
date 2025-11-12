@@ -1,0 +1,11 @@
+node_modules/
+dist/
+images/
+.env
+*.log
+.DS_Store
+*.png
+*.jpg
+*.jpeg
+WALKTHROUGH.md
+
