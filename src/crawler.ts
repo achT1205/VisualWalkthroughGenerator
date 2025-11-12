@@ -228,46 +228,57 @@ export async function crawlWebsite(
   if (options.routesFromCode && options.routesFromCode.length > 0) {
     console.log(`   Found ${options.routesFromCode.length} route(s) from codebase analysis\n`);
     const baseUrlObj = new URL(startUrl);
+    const addedRoutes = new Set<string>(); // Track routes we've added to avoid duplicates
+    
     for (const route of options.routesFromCode) {
       const routeUrl = route.startsWith('/')
         ? `${baseUrlObj.origin}${route}`
         : new URL(route, startUrl).toString();
       const normalizedRoute = normalizeUrl(routeUrl);
-      if (!visited.has(normalizedRoute) && isSameDomain(normalizedRoute, startUrl)) {
+      
+      // Only add if not already in queue and same domain
+      if (!addedRoutes.has(normalizedRoute) && isSameDomain(normalizedRoute, startUrl)) {
         toVisit.push({ url: normalizedRoute, depth: 0 });
-        visited.add(normalizedRoute); // Mark as visited to avoid duplicates
+        addedRoutes.add(normalizedRoute); // Track to avoid adding duplicates to queue
+        console.log(`   Added route to queue: ${normalizedRoute}`);
       }
     }
+    console.log(`   Added ${addedRoutes.size} route(s) to crawl queue\n`);
   }
 
   while (toVisit.length > 0 && discovered.length < options.maxPages) {
     const { url, depth } = toVisit.shift()!;
+    const normalizedUrl = normalizeUrl(url);
 
-    // Skip if already visited
-    if (visited.has(url)) {
+    // Skip if already visited (check normalized URL)
+    if (visited.has(normalizedUrl)) {
+      console.log(`   [Depth ${depth}] Skipping already visited: ${url}`);
       continue;
     }
 
     // Skip if depth exceeded
     if (depth > options.maxDepth) {
+      console.log(`   [Depth ${depth}] Skipping (max depth): ${url}`);
       continue;
     }
 
     // Skip if not same domain (if required)
-    if (options.sameDomainOnly && !isSameDomain(url, startUrl)) {
+    if (options.sameDomainOnly && !isSameDomain(normalizedUrl, startUrl)) {
+      console.log(`   [Depth ${depth}] Skipping (different domain): ${url}`);
       continue;
     }
 
     // Skip if excluded by patterns
-    if (!shouldIncludeUrl(url, options)) {
+    if (!shouldIncludeUrl(normalizedUrl, options)) {
+      console.log(`   [Depth ${depth}] Skipping (excluded pattern): ${url}`);
       continue;
     }
 
-    // Mark as visited
-    visited.add(url);
-    discovered.push(url);
+    // Mark as visited (use normalized URL)
+    visited.add(normalizedUrl);
+    discovered.push(normalizedUrl);
 
-    console.log(`   [Depth ${depth}] Found: ${url}`);
+    console.log(`   [Depth ${depth}] Processing: ${normalizedUrl}`);
 
     // If we've reached max pages, stop discovering new ones
     if (discovered.length >= options.maxPages) {

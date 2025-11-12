@@ -148,9 +148,35 @@ function extractCodeElements(content: string, language: string): {
   }
 
   // Extract routes (common patterns)
-  const routeRegex = /(?:route|path|url)[\s:=]+['"`]([^'"`]+)['"`]/gi;
+  // Vue Router: { path: '/route' }
+  // React Router: path: '/route'
+  // General: path: '/route', route: '/route', url: '/route'
+  const routeRegex = /(?:path|route|url)[\s:=]+['"`]([^'"`]+)['"`]/gi;
   while ((match = routeRegex.exec(content)) !== null) {
-    routes.push(match[1]);
+    const route = match[1].trim();
+    // Only add if it looks like a route (starts with / or is a valid route pattern)
+    if (route.startsWith('/') || route.startsWith('./') || route.match(/^[a-zA-Z0-9_-]+$/)) {
+      routes.push(route);
+    }
+  }
+  
+  // Also try to extract from Vue Router createRouter patterns
+  const vueRouterRegex = /createRouter\([\s\S]*?routes:\s*\[([\s\S]*?)\]/g;
+  let vueMatch;
+  while ((vueMatch = vueRouterRegex.exec(content)) !== null) {
+    const routesBlock = vueMatch[1];
+    const pathMatches = routesBlock.match(/path:\s*['"`]([^'"`]+)['"`]/g);
+    if (pathMatches) {
+      pathMatches.forEach((pm: string) => {
+        const pathMatch = pm.match(/['"`]([^'"`]+)['"`]/);
+        if (pathMatch && pathMatch[1]) {
+          const route = pathMatch[1].trim();
+          if (route.startsWith('/') || route.startsWith('./')) {
+            routes.push(route);
+          }
+        }
+      });
+    }
   }
 
   // Extract API endpoints
