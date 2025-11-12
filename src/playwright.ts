@@ -250,25 +250,31 @@ export async function captureScreenshots(
             }
           } else {
             // No form, capture normally
-            const filename = path.join(
-              config.imagesDir,
-              `${sanitizedTitle}_${Date.now()}.png`
-            );
+            const normalizedUrl = normalizeUrl(url);
+            if (!capturedUrls.has(normalizedUrl)) {
+              const filename = path.join(
+                config.imagesDir,
+                `${sanitizedTitle}_${Date.now()}.png`
+              );
 
-            await page.screenshot({
-              path: filename,
-              fullPage: config.screenshotOptions.fullPage,
-            });
+              await page.screenshot({
+                path: filename,
+                fullPage: config.screenshotOptions.fullPage,
+              });
 
-            results.push({
-              url,
-              title,
-              filename,
-              timestamp: new Date(),
-              hasForm: false,
-            });
+              results.push({
+                url,
+                title,
+                filename,
+                timestamp: new Date(),
+                hasForm: false,
+              });
 
-            console.log(`✅ Captured: ${title}`);
+              capturedUrls.add(normalizedUrl);
+              console.log(`✅ Captured: ${title} - ${url}`);
+            } else {
+              console.log(`   ⚠️  Skipping duplicate capture: ${url}`);
+            }
           }
         } catch (error) {
           // Fallback: capture normally if form handling fails
