@@ -5,7 +5,10 @@
 import { writeFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
 import { Config } from "./config.js";
-import { CodeDocumentation } from "./codeAnalyzer.js";
+import {
+  CodeDocumentation,
+  ComprehensiveCodeAnalysis,
+} from "./codeAnalyzer.js";
 
 export interface PageData {
   title: string;
@@ -42,7 +45,83 @@ function generateMermaidDiagram(pages: PageData[]): string {
 }
 
 /**
- * Build code documentation section
+ * Build comprehensive code documentation section
+ */
+function buildComprehensiveCodeSection(
+  analysis: ComprehensiveCodeAnalysis
+): string {
+  let content = "## 📚 Codebase Documentation\n\n";
+  content += `This section provides comprehensive documentation of the application's source code, architecture, and structure.\n\n`;
+
+  // Overview
+  content += "### 📖 Overview\n\n";
+  content += `${analysis.overview}\n\n`;
+
+  // Architecture
+  if (analysis.architecture) {
+    content += "### 🏗️ Architecture\n\n";
+    content += `${analysis.architecture}\n\n`;
+  }
+
+  // Technologies
+  if (analysis.technologies.length > 0) {
+    content += "### 🛠️ Technologies\n\n";
+    content += `- ${analysis.technologies.join("\n- ")}\n\n`;
+  }
+
+  // Patterns
+  if (analysis.patterns.length > 0) {
+    content += "### 🎨 Design Patterns\n\n";
+    content += `- ${analysis.patterns.join("\n- ")}\n\n`;
+  }
+
+  // Components
+  if (analysis.components.length > 0) {
+    content += "### 🧩 Components\n\n";
+    analysis.components.forEach((comp) => {
+      content += `#### \`${comp.name}\`\n\n`;
+      content += `**File:** \`${comp.file}\`\n\n`;
+      content += `**Description:** ${comp.description}\n\n`;
+      content += "---\n\n";
+    });
+  }
+
+  // Routes
+  if (analysis.routes.length > 0) {
+    content += "### 🛣️ Routes\n\n";
+    analysis.routes.forEach((route) => {
+      content += `- **\`${route.path}\`** (${route.file})\n`;
+      content += `  ${route.description}\n\n`;
+    });
+  }
+
+  // APIs
+  if (analysis.apis.length > 0) {
+    content += "### 🔌 API Endpoints\n\n";
+    analysis.apis.forEach((api) => {
+      content += `- **\`${api.endpoint}\`**`;
+      if (api.method) {
+        content += ` [${api.method}]`;
+      }
+      content += ` (${api.file})\n`;
+      content += `  ${api.description}\n\n`;
+    });
+  }
+
+  // Key Files
+  if (analysis.keyFiles.length > 0) {
+    content += "### 📄 Key Files\n\n";
+    analysis.keyFiles.forEach((file) => {
+      content += `- **\`${file.path}\`** (${file.type})\n`;
+      content += `  ${file.importance}\n\n`;
+    });
+  }
+
+  return content;
+}
+
+/**
+ * Build code documentation section (legacy - file-by-file)
  */
 function buildCodeDocumentationSection(
   codeDocs: CodeDocumentation[]
@@ -142,7 +221,8 @@ function buildCodeDocumentationSection(
 export async function buildMarkdown(
   pages: PageData[],
   config: Config,
-  codeDocs?: CodeDocumentation[]
+  codeDocs?: CodeDocumentation[],
+  comprehensiveAnalysis?: ComprehensiveCodeAnalysis
 ): Promise<void> {
   if (pages.length === 0) {
     console.warn("⚠️  No pages to document. Skipping markdown generation.");
@@ -179,7 +259,11 @@ export async function buildMarkdown(
   }
 
   // Add code documentation if available
-  if (codeDocs && codeDocs.length > 0) {
+  if (comprehensiveAnalysis) {
+    content += "\n";
+    content += buildComprehensiveCodeSection(comprehensiveAnalysis);
+    content += "\n---\n\n";
+  } else if (codeDocs && codeDocs.length > 0) {
     content += "\n";
     content += buildCodeDocumentationSection(codeDocs);
     content += "\n---\n\n";

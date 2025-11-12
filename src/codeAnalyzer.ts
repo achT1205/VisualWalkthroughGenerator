@@ -32,6 +32,34 @@ export interface CodeDocumentation {
   dependencies?: string[];
 }
 
+export interface ComprehensiveCodeAnalysis {
+  overview: string;
+  architecture: string;
+  components: {
+    name: string;
+    file: string;
+    description: string;
+  }[];
+  routes: {
+    path: string;
+    file: string;
+    description: string;
+  }[];
+  apis: {
+    endpoint: string;
+    method?: string;
+    file: string;
+    description: string;
+  }[];
+  keyFiles: {
+    path: string;
+    type: string;
+    importance: string;
+  }[];
+  patterns: string[];
+  technologies: string[];
+}
+
 /**
  * Detect file type based on name and content
  */
@@ -260,29 +288,11 @@ export async function analyzeCodebase(
     console.log(`   [${i + 1}/${codeFiles.length}] Analyzing: ${file.path}`);
 
     try {
-      // Extract code elements
+      // Extract code elements (fast, no AI)
       const elements = extractCodeElements(file.content, file.language);
 
-      // Generate summary using GPT (for important files)
-      let summary = "";
-      if (file.type === "component" || file.type === "route" || file.type === "api") {
-        // Truncate content if too long (GPT has token limits)
-        const contentPreview = file.content.substring(0, 4000);
-        
-        try {
-          summary = await generateCodeSummary(
-            file.name,
-            file.language,
-            contentPreview,
-            file.type
-          );
-        } catch (error) {
-          console.log(`      ⚠️  Could not generate AI summary, using basic summary`);
-          summary = `A ${file.type} file written in ${file.language}.`;
-        }
-      } else {
-        summary = `A ${file.type} file written in ${file.language}.`;
-      }
+      // Generate basic summary (no AI call - we'll do comprehensive analysis later)
+      const summary = `A ${file.type} file written in ${file.language}.`;
 
       documentation.push({
         file,
@@ -303,6 +313,189 @@ export async function analyzeCodebase(
   console.log(`\n✅ Analyzed ${documentation.length} file(s)\n`);
 
   return documentation;
+}
+
+/**
+ * Generate comprehensive codebase documentation from extracted data
+ */
+export async function generateComprehensiveAnalysis(
+  codeDocs: CodeDocumentation[]
+): Promise<ComprehensiveCodeAnalysis> {
+  if (codeDocs.length === 0) {
+    return {
+      overview: "No code files analyzed.",
+      architecture: "",
+      components: [],
+      routes: [],
+      apis: [],
+      keyFiles: [],
+      patterns: [],
+      technologies: [],
+    };
+  }
+
+  console.log("📊 Generating comprehensive codebase analysis...\n");
+
+  // Prepare structured data for GPT
+  const structuredData = {
+    totalFiles: codeDocs.length,
+    components: codeDocs
+      .filter((d) => d.components && d.components.length > 0)
+      .flatMap((d) =>
+        (d.components || []).map((c) => ({
+          name: c,
+          file: d.file.path,
+          type: d.file.type,
+        }))
+      ),
+    routes: codeDocs
+      .filter((d) => d.routes && d.routes.length > 0)
+      .flatMap((d) =>
+        (d.routes || []).map((r) => ({
+          path: r,
+          file: d.file.path,
+        }))
+      ),
+    apis: codeDocs
+      .filter((d) => d.apis && d.apis.length > 0)
+      .flatMap((d) =>
+        (d.apis || []).map((a) => ({
+          endpoint: a,
+          file: d.file.path,
+        }))
+      ),
+    fileSummaries: codeDocs
+      .filter((d) => d.file.type === "component" || d.file.type === "route" || d.file.type === "api")
+      .map((d) => ({
+        path: d.file.path,
+        type: d.file.type,
+        summary: d.summary,
+        language: d.file.language,
+      })),
+    technologies: [
+      ...new Set(codeDocs.map((d) => d.file.language)),
+    ],
+  };
+
+  const OpenAI = (await import("openai")).default;
+  const apiKey = process.env.OPENAI_API_KEY;
+  
+  if (!apiKey) {
+    // Fallback to basic analysis
+    return generateBasicAnalysis(codeDocs, structuredData);
+  }
+
+  const openai = new OpenAI({ apiKey });
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert software architect and technical documentation specialist. 
+Analyze the provided codebase structure and generate comprehensive documentation that includes:
+1. A high-level overview of what the application does
+2. Architecture description (patterns, structure, organization)
+3. Component descriptions with their purposes
+4. Route descriptions
+5. API endpoint documentation
+6. Key files and their importance
+7. Design patterns identified
+8. Technologies used
+
+Be comprehensive, clear, and focus on helping developers understand the codebase structure and purpose.`,
+        },
+        {
+          role: "user",
+          content: `Analyze this codebase:
+
+**Total Files:** ${structuredData.totalFiles}
+**Technologies:** ${structuredData.technologies.join(", ")}
+
+**Components Found:**
+${structuredData.components.map((c) => `- ${c.name} (${c.file})`).join("\n")}
+
+**Routes Found:**
+${structuredData.routes.map((r) => `- ${r.path} (${r.file})`).join("\n")}
+
+**API Endpoints Found:**
+${structuredData.apis.map((a) => `- ${a.endpoint} (${a.file})`).join("\n")}
+
+**Key File Summaries:**
+${structuredData.fileSummaries.map((f) => `- ${f.path} (${f.type}, ${f.language}): ${f.summary}`).join("\n")}
+
+Generate a comprehensive analysis in JSON format with this structure:
+{
+  "overview": "High-level description of the application",
+  "architecture": "Architecture description, patterns, and structure",
+  "components": [{"name": "...", "file": "...", "description": "..."}],
+  "routes": [{"path": "...", "file": "...", "description": "..."}],
+  "apis": [{"endpoint": "...", "method": "...", "file": "...", "description": "..."}],
+  "keyFiles": [{"path": "...", "type": "...", "importance": "..."}],
+  "patterns": ["pattern1", "pattern2"],
+  "technologies": ["tech1", "tech2"]
+}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 2000,
+    });
+
+    const analysis = JSON.parse(
+      response.choices[0]?.message?.content || "{}"
+    ) as ComprehensiveCodeAnalysis;
+
+    // Ensure all arrays exist
+    return {
+      overview: analysis.overview || "No overview available.",
+      architecture: analysis.architecture || "No architecture description available.",
+      components: analysis.components || [],
+      routes: analysis.routes || [],
+      apis: analysis.apis || [],
+      keyFiles: analysis.keyFiles || [],
+      patterns: analysis.patterns || [],
+      technologies: analysis.technologies || structuredData.technologies,
+    };
+  } catch (error) {
+    console.log(`   ⚠️  Error generating comprehensive analysis, using basic analysis`);
+    return generateBasicAnalysis(codeDocs, structuredData);
+  }
+}
+
+/**
+ * Generate basic analysis without AI (fallback)
+ */
+function generateBasicAnalysis(
+  codeDocs: CodeDocumentation[],
+  structuredData: any
+): ComprehensiveCodeAnalysis {
+  return {
+    overview: `This codebase contains ${codeDocs.length} files written in ${structuredData.technologies.join(", ")}.`,
+    architecture: `The codebase is organized with components, routes, and API endpoints.`,
+    components: structuredData.components.map((c: any) => ({
+      name: c.name,
+      file: c.file,
+      description: `Component defined in ${c.file}`,
+    })),
+    routes: structuredData.routes.map((r: any) => ({
+      path: r.path,
+      file: r.file,
+      description: `Route defined in ${r.file}`,
+    })),
+    apis: structuredData.apis.map((a: any) => ({
+      endpoint: a.endpoint,
+      file: a.file,
+      description: `API endpoint defined in ${a.file}`,
+    })),
+    keyFiles: structuredData.fileSummaries.slice(0, 10).map((f: any) => ({
+      path: f.path,
+      type: f.type,
+      importance: "Key file in the application",
+    })),
+    patterns: [],
+    technologies: structuredData.technologies,
+  };
 }
 
 /**

@@ -101,7 +101,11 @@ npm run walkthrough https://example.com --crawl --exclude "/admin,/private"
 
 #### Codebase Analysis Mode 📚
 
-Analyze the application's source code to extract components, routes, APIs, and generate code documentation:
+Analyze the application's source code using a **two-phase approach**:
+1. **Phase 1**: Fast extraction of code structure (components, routes, APIs) - no AI calls
+2. **Phase 2**: Comprehensive AI-powered analysis that generates architecture overview, patterns, and relationships
+
+This approach is much more efficient and produces better documentation than analyzing files one-by-one:
 
 **Option 1: Use the wrapper script (Windows - Recommended)**
 ```bash

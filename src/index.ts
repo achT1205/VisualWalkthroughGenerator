@@ -8,7 +8,11 @@ import { captureScreenshots } from "./playwright.js";
 import { describeScreenshot } from "./openaiClient.js";
 import { buildMarkdown, type PageData } from "./markdownBuilder.js";
 import { crawlWebsite } from "./crawler.js";
-import { analyzeCodebase, type CodeDocumentation } from "./codeAnalyzer.js";
+import {
+  analyzeCodebase,
+  generateComprehensiveAnalysis,
+  type CodeDocumentation,
+} from "./codeAnalyzer.js";
 import {
   getUrlsFromArgs,
   defaultConfig,
@@ -123,16 +127,28 @@ async function main() {
 
     // Step 3: Analyze codebase (if enabled)
     let codeDocs: CodeDocumentation[] = [];
+    let comprehensiveAnalysis = undefined;
+    
     if (config.codeAnalysis?.enabled) {
       console.log("📚 Step 3: Analyzing codebase...\n");
+      
+      // Phase 1: Extract code information (fast, no AI)
+      console.log("   Phase 1: Extracting code structure...\n");
       codeDocs = await analyzeCodebase(config.codeAnalysis);
-      console.log(`\n✅ Analyzed ${codeDocs.length} code file(s)\n`);
+      console.log(`   ✅ Extracted information from ${codeDocs.length} file(s)\n`);
+      
+      // Phase 2: Generate comprehensive analysis (AI-powered)
+      if (codeDocs.length > 0) {
+        console.log("   Phase 2: Generating comprehensive analysis...\n");
+        comprehensiveAnalysis = await generateComprehensiveAnalysis(codeDocs);
+        console.log("   ✅ Comprehensive analysis generated\n");
+      }
     }
 
     // Step 4: Build markdown documentation
     const stepNumber = config.codeAnalysis?.enabled ? "4" : "3";
     console.log(`📝 Step ${stepNumber}: Building markdown documentation...\n`);
-    await buildMarkdown(pages, config, codeDocs);
+    await buildMarkdown(pages, config, codeDocs, comprehensiveAnalysis);
 
     // Summary
     console.log("\n" + "=".repeat(50));
