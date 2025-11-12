@@ -96,6 +96,20 @@ export async function captureScreenshots(
         // Wait a bit for any dynamic content to render
         await page.waitForTimeout(2000);
 
+        // Check if page has forms that need interaction (for screenshot capture)
+        // This helps capture the correct page after form submission
+        try {
+          const { detectForms, autoFillForm } = await import("./formHandler.js");
+          const hasForms = await detectForms(page);
+          if (hasForms && config.crawl?.autoFillForms !== false) {
+            console.log(`   📋 Form detected on ${url}, attempting to fill...`);
+            await autoFillForm(page);
+            await page.waitForTimeout(2000); // Wait after form submission
+          }
+        } catch (error) {
+          // Ignore form handling errors during screenshot capture
+        }
+
         // Get page title
         const title = (await page.title()) || "Untitled Page";
         const sanitizedTitle = sanitizeFilename(title);

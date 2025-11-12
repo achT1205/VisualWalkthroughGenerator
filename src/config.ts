@@ -9,6 +9,8 @@ export interface CrawlConfig {
   sameDomainOnly: boolean;
   excludePatterns: string[];
   includePatterns: string[];
+  autoFillForms?: boolean; // Automatically fill and submit forms
+  formFields?: Array<{ selector: string; value: string }>; // Custom form field values
 }
 
 export interface CodeAnalysisConfig {
@@ -99,6 +101,9 @@ export function getCrawlConfig(): CrawlConfig {
     ? args[includeIndex + 1].split(",").map((p) => p.trim())
     : [];
 
+  // Parse --auto-fill-forms (default: true, use --no-auto-fill-forms to disable)
+  const autoFillForms = !args.includes("--no-auto-fill-forms");
+
   return {
     enabled: isCrawlModeEnabled(),
     maxDepth,
@@ -106,6 +111,7 @@ export function getCrawlConfig(): CrawlConfig {
     sameDomainOnly: true, // Always crawl same domain only for safety
     excludePatterns,
     includePatterns,
+    autoFillForms, // Default to true
   };
 }
 

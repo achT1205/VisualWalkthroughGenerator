@@ -7,6 +7,7 @@ An AI-powered CLI tool that automatically documents web applications by taking s
 - 🤖 **AI-Powered Descriptions**: Uses GPT-4o Vision to generate clear, user-friendly descriptions of web pages
 - 📸 **Automated Screenshots**: Captures full-page screenshots using Playwright
 - 🕷️ **Auto-Crawl Mode**: Automatically discovers and documents all pages on a website
+- 📋 **Form Auto-Fill**: Automatically detects, fills, and submits forms to access protected pages
 - 📚 **Codebase Analysis**: Analyzes source code to extract components, routes, APIs, and generate documentation
 - 📝 **Markdown Output**: Generates beautiful, structured Markdown documentation
 - 🗺️ **Navigation Diagrams**: Automatically creates Mermaid diagrams for multi-page walkthroughs
@@ -86,6 +87,8 @@ npm run walkthrough -- https://example.com --crawl
 - `--max-pages <number>`: Maximum pages to discover (default: 50)
 - `--exclude <patterns>`: Comma-separated patterns to exclude (default: excludes PDFs, images, mailto, etc.)
 - `--include <patterns>`: Comma-separated patterns to include (optional)
+- `--auto-fill-forms`: Automatically fill and submit forms (enabled by default)
+- `--no-auto-fill-forms`: Disable automatic form filling
 
 **Examples:**
 ```bash

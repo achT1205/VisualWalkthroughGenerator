@@ -4,6 +4,7 @@
 
 import { Page } from "playwright";
 import { URL } from "url";
+import { detectForms, autoFillForm, type FormField } from "./formHandler.js";
 
 export interface CrawlOptions {
   maxDepth: number;
@@ -12,6 +13,8 @@ export interface CrawlOptions {
   excludePatterns: string[];
   includePatterns: string[];
   routesFromCode?: string[]; // Routes extracted from codebase analysis
+  autoFillForms?: boolean; // Automatically fill and submit forms
+  formFields?: Array<{ selector: string; value: string }>; // Custom form field values
 }
 
 export interface CrawlResult {
@@ -320,6 +323,31 @@ export async function crawlWebsite(
       
       // Additional wait for dynamic content
       await page.waitForTimeout(1000);
+
+      // Check if page has forms that need interaction (if auto-fill is enabled)
+      if (options.autoFillForms !== false) {
+        const hasForms = await detectForms(page);
+        if (hasForms) {
+          console.log("   📋 Form detected, attempting to fill and submit...");
+          
+          // Convert formFields config to FormField format if provided
+          const customFields = options.formFields?.map(f => ({
+            selector: f.selector,
+            value: f.value,
+          }));
+          
+          const formFilled = await autoFillForm(page, customFields);
+          if (formFilled) {
+            // Wait a bit more after form submission
+            await page.waitForTimeout(2000);
+            // Re-extract links after form submission (new page might have loaded)
+            const linksAfterForm = await extractLinks(page, url);
+            if (linksAfterForm.length > 0) {
+              console.log(`   Found ${linksAfterForm.length} additional link(s) after form submission`);
+            }
+          }
+        }
+      }
 
       // Extract links
       const links = await extractLinks(page, url);
