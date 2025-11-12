@@ -1,11 +1,45 @@
+# Dependencies
 node_modules/
+package-lock.json
+
+# Build outputs
 dist/
-images/
+*.tsbuildinfo
+
+# Environment variables
 .env
-*.log
-.DS_Store
+.env.local
+.env.*.local
+
+# Generated files
+images/
+WALKTHROUGH.md
 *.png
 *.jpg
 *.jpeg
-WALKTHROUGH.md
+*.gif
+*.webp
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
 
