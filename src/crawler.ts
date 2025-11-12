@@ -403,13 +403,16 @@ export async function crawlWebsite(
 
   const skipped = visited.size - discovered.length;
 
+  // Final deduplication before returning (in case of any duplicates)
+  const uniqueUrls = Array.from(new Set(discovered.map(u => normalizeUrl(u))));
+  
   console.log(`\n✅ Crawl complete:`);
-  console.log(`   Discovered: ${discovered.length} page(s)`);
+  console.log(`   Discovered: ${uniqueUrls.length} unique page(s)`);
   console.log(`   Skipped: ${skipped} page(s)\n`);
 
   return {
-    urls: discovered,
-    discovered: discovered.length,
+    urls: uniqueUrls,
+    discovered: uniqueUrls.length,
     skipped,
   };
 }

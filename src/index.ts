@@ -73,12 +73,39 @@ async function main() {
 
       // Crawl the website
       const crawlResult = await crawlWebsite(page, startUrl, enhancedCrawlConfig);
-      urls = crawlResult.urls;
+      
+      // Deduplicate URLs using normalized URLs
+      const urlSet = new Set<string>();
+      const normalizeUrl = (url: string): string => {
+        try {
+          const parsed = new URL(url);
+          parsed.hash = "";
+          if (parsed.pathname !== "/" && parsed.pathname.endsWith("/")) {
+            parsed.pathname = parsed.pathname.slice(0, -1);
+          }
+          return parsed.toString();
+        } catch {
+          return url;
+        }
+      };
+      
+      for (const url of crawlResult.urls) {
+        const normalized = normalizeUrl(url);
+        if (!urlSet.has(normalized)) {
+          urlSet.add(normalized);
+          urls.push(url); // Keep original URL for display, but track normalized for dedup
+        }
+      }
+      
+      // Remove duplicates from urls array
+      urls = Array.from(new Set(urls.map(u => normalizeUrl(u))));
 
       if (urls.length === 0) {
         console.error("❌ No pages discovered during crawl. Exiting.");
         process.exit(1);
       }
+      
+      console.log(`\n✅ Found ${urls.length} unique page(s) to capture\n`);
     } finally {
       await context.close();
       await browser.close();

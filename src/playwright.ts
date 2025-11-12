@@ -161,6 +161,10 @@ export async function captureScreenshots(
               // Wait for navigation or page update
               await page.waitForTimeout(3000);
               
+              // Check if URL changed after form submission
+              const currentUrl = normalizeUrl(page.url());
+              const originalNormalized = normalizeUrl(url);
+              
               // Get new title after form submission (might have changed)
               const newTitle = (await page.title()) || title;
               const newSanitizedTitle = sanitizeFilename(newTitle);
@@ -177,8 +181,10 @@ export async function captureScreenshots(
               console.log(`   📸 Captured after form: ${newSanitizedTitle}-action`);
               
               // Use the post-form state as the main screenshot
+              // Use the actual current URL, not the original
+              const finalUrl = currentUrl !== originalNormalized ? currentUrl : url;
               results.push({
-                url,
+                url: finalUrl,
                 title: newTitle,
                 filename: afterFormFilename,
                 timestamp: new Date(),
@@ -188,6 +194,11 @@ export async function captureScreenshots(
               });
               
               console.log(`✅ Captured: ${newTitle} (with form action)`);
+              
+              // If URL changed, mark the new URL as captured to avoid duplicate
+              if (currentUrl !== originalNormalized) {
+                capturedUrls.add(currentUrl);
+              }
             } else {
               // Form wasn't submitted, just use before screenshot
               results.push({
