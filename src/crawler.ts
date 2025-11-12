@@ -235,6 +235,7 @@ export async function crawlWebsite(
       const normalizedRoute = normalizeUrl(routeUrl);
       if (!visited.has(normalizedRoute) && isSameDomain(normalizedRoute, startUrl)) {
         toVisit.push({ url: normalizedRoute, depth: 0 });
+        visited.add(normalizedRoute); // Mark as visited to avoid duplicates
       }
     }
   }

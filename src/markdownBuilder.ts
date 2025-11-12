@@ -16,6 +16,9 @@ export interface PageData {
   filename: string;
   description: string;
   timestamp: Date;
+  hasForm?: boolean;
+  beforeFormFilename?: string;
+  afterFormFilename?: string;
 }
 
 /**
@@ -278,7 +281,26 @@ export async function buildMarkdown(
 
     content += `## ${page.title}\n\n`;
     content += `**URL:** [${page.url}](${page.url})\n\n`;
-    content += `![${page.title}](${relativeImagePath})\n\n`;
+    
+    // If page has form, show before and after screenshots
+    if (page.hasForm && page.beforeFormFilename && page.afterFormFilename) {
+      const beforePath = path.relative(
+        path.dirname(config.outputFile) || ".",
+        page.beforeFormFilename
+      );
+      const afterPath = path.relative(
+        path.dirname(config.outputFile) || ".",
+        page.afterFormFilename
+      );
+      
+      content += `### Before Form Submission\n\n`;
+      content += `![${page.title} - Before](${beforePath})\n\n`;
+      content += `### After Form Submission\n\n`;
+      content += `![${page.title} - After](${afterPath})\n\n`;
+    } else {
+      content += `![${page.title}](${relativeImagePath})\n\n`;
+    }
+    
     content += `> ${page.description}\n\n`;
     content += `*Screenshot captured: ${page.timestamp.toLocaleString()}*\n\n`;
     content += "---\n\n";

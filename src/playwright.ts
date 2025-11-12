@@ -12,6 +12,25 @@ export interface ScreenshotResult {
   title: string;
   filename: string;
   timestamp: Date;
+  hasForm?: boolean;
+  beforeFormFilename?: string; // Screenshot before form submission
+  afterFormFilename?: string; // Screenshot after form submission
+}
+
+/**
+ * Normalize URL to avoid duplicates
+ */
+function normalizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = "";
+    if (parsed.pathname !== "/" && parsed.pathname.endsWith("/")) {
+      parsed.pathname = parsed.pathname.slice(0, -1);
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }
 
 /**
@@ -50,9 +69,21 @@ export async function captureScreenshots(
     mkdirSync(config.imagesDir, { recursive: true });
   }
 
+  // Track captured URLs to avoid duplicates
+  const capturedUrls = new Set<string>();
+
   try {
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
+      const normalizedUrl = normalizeUrl(url);
+      
+      // Skip if already captured
+      if (capturedUrls.has(normalizedUrl)) {
+        console.log(`📸 [${i + 1}/${urls.length}] Skipping duplicate: ${url}`);
+        continue;
+      }
+      
+      capturedUrls.add(normalizedUrl);
       console.log(`📸 [${i + 1}/${urls.length}] Capturing: ${url}`);
 
       try {
@@ -96,42 +127,124 @@ export async function captureScreenshots(
         // Wait a bit for any dynamic content to render
         await page.waitForTimeout(2000);
 
-        // Check if page has forms that need interaction (for screenshot capture)
-        // This helps capture the correct page after form submission
-        try {
-          const { detectForms, autoFillForm } = await import("./formHandler.js");
-          const hasForms = await detectForms(page);
-          if (hasForms && config.crawl?.autoFillForms !== false) {
-            console.log(`   📋 Form detected on ${url}, attempting to fill...`);
-            await autoFillForm(page);
-            await page.waitForTimeout(2000); // Wait after form submission
-          }
-        } catch (error) {
-          // Ignore form handling errors during screenshot capture
-        }
-
-        // Get page title
+        // Get page title first
         const title = (await page.title()) || "Untitled Page";
         const sanitizedTitle = sanitizeFilename(title);
-        const filename = path.join(
-          config.imagesDir,
-          `${sanitizedTitle}_${Date.now()}.png`
-        );
 
-        // Take screenshot
-        await page.screenshot({
-          path: filename,
-          fullPage: config.screenshotOptions.fullPage,
-        });
+        // Check if page has forms that need interaction
+        let hasForms = false;
+        let beforeFormFilename: string | undefined;
+        let afterFormFilename: string | undefined;
 
-        results.push({
-          url,
-          title,
-          filename,
-          timestamp: new Date(),
-        });
+        try {
+          const { detectForms, autoFillForm } = await import("./formHandler.js");
+          hasForms = await detectForms(page);
+          
+          if (hasForms && config.crawl?.autoFillForms !== false) {
+            console.log(`   📋 Form detected, capturing before and after...`);
+            
+            // Capture BEFORE form submission
+            beforeFormFilename = path.join(
+              config.imagesDir,
+              `${sanitizedTitle}_${Date.now()}.png`
+            );
+            await page.screenshot({
+              path: beforeFormFilename,
+              fullPage: config.screenshotOptions.fullPage,
+            });
+            console.log(`   📸 Captured before form: ${sanitizedTitle}`);
 
-        console.log(`✅ Captured: ${title}`);
+            // Fill and submit form
+            const formFilled = await autoFillForm(page);
+            
+            if (formFilled) {
+              // Wait for navigation or page update
+              await page.waitForTimeout(3000);
+              
+              // Get new title after form submission (might have changed)
+              const newTitle = (await page.title()) || title;
+              const newSanitizedTitle = sanitizeFilename(newTitle);
+              
+              // Capture AFTER form submission
+              afterFormFilename = path.join(
+                config.imagesDir,
+                `${newSanitizedTitle}-action_${Date.now()}.png`
+              );
+              await page.screenshot({
+                path: afterFormFilename,
+                fullPage: config.screenshotOptions.fullPage,
+              });
+              console.log(`   📸 Captured after form: ${newSanitizedTitle}-action`);
+              
+              // Use the post-form state as the main screenshot
+              results.push({
+                url,
+                title: newTitle,
+                filename: afterFormFilename,
+                timestamp: new Date(),
+                hasForm: true,
+                beforeFormFilename,
+                afterFormFilename,
+              });
+              
+              console.log(`✅ Captured: ${newTitle} (with form action)`);
+            } else {
+              // Form wasn't submitted, just use before screenshot
+              results.push({
+                url,
+                title,
+                filename: beforeFormFilename,
+                timestamp: new Date(),
+                hasForm: true,
+                beforeFormFilename,
+              });
+              console.log(`✅ Captured: ${title} (form detected but not submitted)`);
+            }
+          } else {
+            // No form, capture normally
+            const filename = path.join(
+              config.imagesDir,
+              `${sanitizedTitle}_${Date.now()}.png`
+            );
+
+            await page.screenshot({
+              path: filename,
+              fullPage: config.screenshotOptions.fullPage,
+            });
+
+            results.push({
+              url,
+              title,
+              filename,
+              timestamp: new Date(),
+              hasForm: false,
+            });
+
+            console.log(`✅ Captured: ${title}`);
+          }
+        } catch (error) {
+          // Fallback: capture normally if form handling fails
+          console.log(`   ⚠️  Form handling error, capturing normally: ${error}`);
+          const filename = path.join(
+            config.imagesDir,
+            `${sanitizedTitle}_${Date.now()}.png`
+          );
+
+          await page.screenshot({
+            path: filename,
+            fullPage: config.screenshotOptions.fullPage,
+          });
+
+          results.push({
+            url,
+            title,
+            filename,
+            timestamp: new Date(),
+            hasForm: false,
+          });
+
+          console.log(`✅ Captured: ${title}`);
+        }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);

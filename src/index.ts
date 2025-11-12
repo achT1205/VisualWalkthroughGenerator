@@ -135,6 +135,9 @@ async function main() {
         filename: screenshot.filename,
         description,
         timestamp: screenshot.timestamp,
+        hasForm: screenshot.hasForm,
+        beforeFormFilename: screenshot.beforeFormFilename,
+        afterFormFilename: screenshot.afterFormFilename,
       });
 
       // Small delay to avoid rate limiting
