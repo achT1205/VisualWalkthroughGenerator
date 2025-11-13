@@ -239,6 +239,7 @@ export async function crawlWebsite(
   ];
   const discovered: string[] = [];
   const screenshots: ScreenshotResult[] = [];
+  const addedRoutes = new Set<string>(); // Track routes/URLs we've added to avoid duplicates
   
   // Ensure images directory exists
   if (!existsSync(imagesDir)) {
@@ -252,7 +253,6 @@ export async function crawlWebsite(
   if (options.routesFromCode && options.routesFromCode.length > 0) {
     console.log(`   Found ${options.routesFromCode.length} route(s) from codebase analysis\n`);
     const baseUrlObj = new URL(startUrl);
-    const addedRoutes = new Set<string>(); // Track routes we've added to avoid duplicates
     
     for (const route of options.routesFromCode) {
       const routeUrl = route.startsWith('/')
