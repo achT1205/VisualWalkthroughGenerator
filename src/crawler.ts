@@ -4,7 +4,10 @@
 
 import { Page } from "playwright";
 import { URL } from "url";
+import { existsSync, mkdirSync } from "fs";
+import path from "path";
 import { detectForms, autoFillForm, type FormField } from "./formHandler.js";
+import type { ScreenshotResult } from "./playwright.js";
 
 export interface CrawlOptions {
   maxDepth: number;
@@ -21,6 +24,7 @@ export interface CrawlResult {
   urls: string[];
   discovered: number;
   skipped: number;
+  screenshots: ScreenshotResult[]; // Screenshots captured during crawling
 }
 
 /**
@@ -210,16 +214,35 @@ async function extractLinks(page: Page, baseUrl: string): Promise<string[]> {
 /**
  * Crawl a website starting from a base URL
  */
+/**
+ * Sanitize filename by removing invalid characters
+ */
+function sanitizeFilename(title: string): string {
+  return title
+    .replace(/[<>:"/\\|?*]/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .substring(0, 100) || "untitled";
+}
+
 export async function crawlWebsite(
   page: Page,
   startUrl: string,
-  options: CrawlOptions
+  options: CrawlOptions,
+  imagesDir: string = "./images"
 ): Promise<CrawlResult> {
   const visited = new Set<string>();
   const toVisit: Array<{ url: string; depth: number }> = [
     { url: normalizeUrl(startUrl), depth: 0 },
   ];
   const discovered: string[] = [];
+  const screenshots: ScreenshotResult[] = [];
+  
+  // Ensure images directory exists
+  if (!existsSync(imagesDir)) {
+    mkdirSync(imagesDir, { recursive: true });
+  }
 
   console.log(`🕷️  Starting crawl from: ${startUrl}`);
   console.log(`   Max depth: ${options.maxDepth}, Max pages: ${options.maxPages}\n`);
@@ -336,29 +359,134 @@ export async function crawlWebsite(
       // Additional wait for dynamic content
       await page.waitForTimeout(1000);
 
+      // Get page title for screenshot naming
+      const title = (await page.title()) || "Untitled Page";
+      const sanitizedTitle = sanitizeFilename(title);
+
       // Check if page has forms that need interaction (if auto-fill is enabled)
+      let hasForms = false;
+      let beforeFormFilename: string | undefined;
+      let afterFormFilename: string | undefined;
+
       if (options.autoFillForms !== false) {
-        const hasForms = await detectForms(page);
+        hasForms = await detectForms(page);
         if (hasForms) {
-          console.log("   📋 Form detected, attempting to fill and submit...");
+          console.log("   📋 Form detected, capturing before and after...");
           
+          // Create comprehensive filename for before form (based on URL path)
+          let urlPath = '';
+          try {
+            const urlObj = new URL(url);
+            urlPath = urlObj.pathname.replace(/^\//, '').replace(/\//g, '_').replace(/[^a-zA-Z0-9_-]/g, '_') || 'home';
+          } catch {
+            urlPath = 'page';
+          }
+          const beforeTitle = urlPath ? `${urlPath}_before_form` : `${sanitizedTitle}_before_form`;
+          const beforeSanitizedTitle = sanitizeFilename(beforeTitle);
+          
+          // Capture BEFORE form submission
+          beforeFormFilename = path.join(
+            imagesDir,
+            `${beforeSanitizedTitle}_${Date.now()}.png`
+          );
+          await page.screenshot({
+            path: beforeFormFilename,
+            fullPage: true,
+          });
+          console.log(`   📸 Captured before form: ${beforeSanitizedTitle}`);
+
           // Convert formFields config to FormField format if provided
           const customFields = options.formFields?.map(f => ({
             selector: f.selector,
             value: f.value,
           }));
           
+          // Fill and submit form
           const formFilled = await autoFillForm(page, customFields);
           if (formFilled) {
-            // Wait a bit more after form submission
-            await page.waitForTimeout(2000);
+            // Wait for navigation or page update
+            await page.waitForTimeout(3000);
+            
+            // Check if URL changed after form submission
+            const currentUrl = normalizeUrl(page.url());
+            const originalNormalized = normalizeUrl(url);
+            
+            // Get new title after form submission (might have changed)
+            const newTitle = (await page.title()) || title;
+            
+            // Create comprehensive filename based on URL path and action
+            let urlPathAfter = '';
+            try {
+              const urlObj = new URL(currentUrl);
+              urlPathAfter = urlObj.pathname.replace(/^\//, '').replace(/\//g, '_').replace(/[^a-zA-Z0-9_-]/g, '_') || 'home';
+            } catch {
+              urlPathAfter = 'page';
+            }
+            const comprehensiveTitle = urlPathAfter ? `${urlPathAfter}_after_form` : `form_submitted`;
+            const newSanitizedTitle = sanitizeFilename(comprehensiveTitle);
+            
+            // Capture AFTER form submission
+            afterFormFilename = path.join(
+              imagesDir,
+              `${newSanitizedTitle}_${Date.now()}.png`
+            );
+            await page.screenshot({
+              path: afterFormFilename,
+              fullPage: true,
+            });
+            console.log(`   📸 Captured after form: ${newSanitizedTitle}`);
+            
+            // Use the post-form state as the main screenshot
+            const finalUrl = currentUrl !== originalNormalized ? currentUrl : url;
+            screenshots.push({
+              url: finalUrl,
+              title: newTitle,
+              filename: afterFormFilename,
+              timestamp: new Date(),
+              hasForm: true,
+              beforeFormFilename,
+              afterFormFilename,
+            });
+            console.log(`   ✅ Captured screenshot: ${newTitle} (with form action) - ${finalUrl}`);
+            
             // Re-extract links after form submission (new page might have loaded)
             const linksAfterForm = await extractLinks(page, url);
             if (linksAfterForm.length > 0) {
               console.log(`   Found ${linksAfterForm.length} additional link(s) after form submission`);
             }
+          } else {
+            // Form wasn't submitted, just use before screenshot
+            screenshots.push({
+              url,
+              title,
+              filename: beforeFormFilename,
+              timestamp: new Date(),
+              hasForm: true,
+              beforeFormFilename,
+            });
+            console.log(`   ✅ Captured screenshot: ${title} (form detected but not submitted) - ${url}`);
           }
         }
+      }
+      
+      // If no form was detected, capture normally
+      if (!hasForms) {
+        const filename = path.join(
+          imagesDir,
+          `${sanitizedTitle}_${Date.now()}.png`
+        );
+        await page.screenshot({
+          path: filename,
+          fullPage: true,
+        });
+        screenshots.push({
+          url,
+          title,
+          filename,
+          timestamp: new Date(),
+          hasForm: false,
+        });
+        console.log(`   ✅ Captured screenshot: ${title} - ${url}`);
       }
 
       // Extract links
@@ -408,12 +536,14 @@ export async function crawlWebsite(
   
   console.log(`\n✅ Crawl complete:`);
   console.log(`   Discovered: ${uniqueUrls.length} unique page(s)`);
-  console.log(`   Skipped: ${skipped} page(s)\n`);
+  console.log(`   Skipped: ${skipped} page(s)`);
+  console.log(`   Screenshots captured: ${screenshots.length}\n`);
 
   return {
     urls: uniqueUrls,
     discovered: uniqueUrls.length,
     skipped,
+    screenshots,
   };
 }
 

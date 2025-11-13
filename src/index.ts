@@ -79,8 +79,8 @@ async function main() {
         routesFromCode,
       };
 
-      // Crawl the website
-      const crawlResult = await crawlWebsite(page, startUrl, enhancedCrawlConfig);
+      // Crawl the website (with screenshot capture)
+      const crawlResult = await crawlWebsite(page, startUrl, enhancedCrawlConfig, defaultConfig.imagesDir);
       
       // Deduplicate URLs using normalized URLs
       const urlSet = new Set<string>();
@@ -125,6 +125,65 @@ async function main() {
       }
       
       console.log(`\n✅ Found ${urls.length} unique page(s) to capture\n`);
+      
+      // If crawl mode captured screenshots, use them directly
+      if (crawlResult.screenshots && crawlResult.screenshots.length > 0) {
+        console.log(`📸 Screenshots captured during crawl: ${crawlResult.screenshots.length}\n`);
+        // Use screenshots from crawl, skip separate capture phase
+        const screenshots = crawlResult.screenshots;
+        
+        // Step 2: Generate descriptions using GPT-4o Vision
+        console.log("🤖 Step 2: Generating AI descriptions...\n");
+        const pages: PageData[] = [];
+
+        for (const screenshot of screenshots) {
+          const description = await describeScreenshot(
+            screenshot.filename,
+            screenshot.title,
+            screenshot.url
+          );
+
+          pages.push({
+            title: screenshot.title,
+            url: screenshot.url,
+            filename: screenshot.filename,
+            description,
+            timestamp: screenshot.timestamp,
+            hasForm: screenshot.hasForm,
+            beforeFormFilename: screenshot.beforeFormFilename,
+            afterFormFilename: screenshot.afterFormFilename,
+          });
+
+          // Small delay to avoid rate limiting
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        console.log(`\n✅ Generated ${pages.length} description(s)\n`);
+
+        // Step 3: Analyze codebase (if enabled)
+        let codeDocs: CodeDocumentation[] = [];
+        let comprehensiveAnalysis = undefined;
+        
+        if (codeAnalysisConfig.enabled && codeAnalysisConfig.codebasePath) {
+          console.log("📚 Step 3: Analyzing codebase...\n");
+          codeDocs = await analyzeCodebase(codeAnalysisConfig);
+          comprehensiveAnalysis = await generateComprehensiveAnalysis(codeDocs);
+        }
+
+        // Step 4: Build markdown documentation
+        const stepNumber = codeAnalysisConfig.enabled ? "4" : "3";
+        console.log(`📝 Step ${stepNumber}: Building markdown documentation...\n`);
+        await buildMarkdown(pages, defaultConfig, codeDocs, comprehensiveAnalysis);
+
+        console.log("\n==================================================");
+        console.log("✅ Walkthrough generation complete!");
+        console.log("==================================================\n");
+        console.log(`📄 Documentation: ${defaultConfig.outputFile}`);
+        console.log(`🖼️  Screenshots: ${defaultConfig.imagesDir}`);
+        console.log(`📊 Pages documented: ${pages.length}\n`);
+
+        return; // Exit early since we've already processed everything
+      }
     } finally {
       await context.close();
       await browser.close();
