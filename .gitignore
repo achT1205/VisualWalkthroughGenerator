@@ -12,6 +12,7 @@ dist/
 
 # Generated files
 images/
+output/
 WALKTHROUGH.md
 *.png
 *.jpg
