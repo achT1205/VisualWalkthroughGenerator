@@ -90,6 +90,8 @@ npm run walkthrough -- https://example.com --crawl
 - `--include <patterns>`: Comma-separated patterns to include (optional)
 - `--auto-fill-forms`: Automatically fill and submit forms (enabled by default)
 - `--no-auto-fill-forms`: Disable automatic form filling
+- `--login-username <username>`: Username for login forms (use with `--login-password`)
+- `--login-password <password>`: Password for login forms (use with `--login-username`)
 
 **Examples:**
 ```bash
@@ -101,6 +103,9 @@ npm run walkthrough https://example.com --crawl --max-depth 2 --max-pages 20
 
 # Crawl excluding specific paths
 npm run walkthrough https://example.com --crawl --exclude "/admin,/private"
+
+# Crawl with login credentials (e.g., for Sauce Labs demo)
+walkthrough.cmd https://www.saucedemo.com --crawl --login-username standard_user --login-password secret_sauce
 ```
 
 #### Codebase Analysis Mode 📚

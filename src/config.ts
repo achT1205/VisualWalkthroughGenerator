@@ -11,6 +11,7 @@ export interface CrawlConfig {
   includePatterns: string[];
   autoFillForms?: boolean; // Automatically fill and submit forms
   formFields?: Array<{ selector: string; value: string }>; // Custom form field values
+  loginCredentials?: { username: string; password: string }; // Login credentials for authentication
 }
 
 export interface CodeAnalysisConfig {
@@ -110,6 +111,19 @@ export function getCrawlConfig(): CrawlConfig {
   // Parse --auto-fill-forms (default: true, use --no-auto-fill-forms to disable)
   const autoFillForms = !args.includes("--no-auto-fill-forms");
 
+  // Parse --login-username and --login-password for login forms
+  const usernameIndex = args.indexOf("--login-username");
+  const passwordIndex = args.indexOf("--login-password");
+  let loginCredentials: { username: string; password: string } | undefined;
+  
+  if (usernameIndex !== -1 && passwordIndex !== -1) {
+    const username = args[usernameIndex + 1];
+    const password = args[passwordIndex + 1];
+    if (username && password) {
+      loginCredentials = { username, password };
+    }
+  }
+
   return {
     enabled: isCrawlModeEnabled(),
     maxDepth,
@@ -118,6 +132,7 @@ export function getCrawlConfig(): CrawlConfig {
     excludePatterns,
     includePatterns,
     autoFillForms, // Default to true
+    loginCredentials,
   };
 }
 

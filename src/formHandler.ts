@@ -37,13 +37,14 @@ export async function detectForms(page: Page): Promise<boolean> {
  */
 export async function autoFillForm(
   page: Page,
-  customFields?: FormField[]
+  customFields?: FormField[],
+  loginCredentials?: { username: string; password: string }
 ): Promise<boolean> {
   try {
     console.log("   🔍 Detecting forms on page...");
 
     // Use custom fields if provided, otherwise use intelligent defaults
-    const fieldsToFill = customFields || await generateDefaultFields(page);
+    const fieldsToFill = customFields || await generateDefaultFields(page, loginCredentials);
 
     if (fieldsToFill.length === 0) {
       console.log("   ℹ️  No form fields detected");
@@ -100,7 +101,10 @@ export async function autoFillForm(
 /**
  * Generate default field values based on common patterns
  */
-async function generateDefaultFields(page: Page): Promise<FormField[]> {
+async function generateDefaultFields(
+  page: Page,
+  loginCredentials?: { username: string; password: string }
+): Promise<FormField[]> {
   const fields: FormField[] = [];
 
   try {
@@ -157,9 +161,15 @@ async function generateDefaultFields(page: Page): Promise<FormField[]> {
       return inputs;
     });
 
+    // Check if this is a login form
+    const loginInfo = isLoginForm(fieldInfo);
+    
     // Generate values based on field patterns
     for (const info of fieldInfo) {
-      let value = generateValueForField(info);
+      const isUsername = loginInfo.isLogin && info.selector === loginInfo.usernameField;
+      const isPassword = loginInfo.isLogin && info.selector === loginInfo.passwordField;
+      
+      let value = generateValueForField(info, loginCredentials, isUsername, isPassword);
 
       if (value) {
         fields.push({
@@ -169,6 +179,10 @@ async function generateDefaultFields(page: Page): Promise<FormField[]> {
         });
       }
     }
+    
+    if (loginInfo.isLogin && loginCredentials) {
+      console.log(`   🔐 Login form detected - using provided credentials`);
+    }
   } catch (error) {
     console.log(`      ⚠️  Error generating fields: ${error}`);
   }
@@ -177,14 +191,72 @@ async function generateDefaultFields(page: Page): Promise<FormField[]> {
 }
 
 /**
- * Generate appropriate value for a field based on its characteristics
+ * Check if this is a login form and get credentials
  */
-function generateValueForField(info: {
+function isLoginForm(fieldInfo: Array<{
+  selector: string;
   type: string;
   name: string;
   placeholder: string;
   label: string;
-}): string {
+}>): { isLogin: boolean; usernameField?: string; passwordField?: string } {
+  let usernameField: string | undefined;
+  let passwordField: string | undefined;
+  
+  for (const field of fieldInfo) {
+    const lowerName = field.name.toLowerCase();
+    const lowerLabel = field.label.toLowerCase();
+    const lowerPlaceholder = field.placeholder.toLowerCase();
+    
+    // Detect username field
+    if (
+      field.type === "text" &&
+      (lowerName.includes("user") ||
+       lowerName.includes("login") ||
+       lowerName.includes("email") ||
+       lowerLabel.includes("user") ||
+       lowerLabel.includes("username") ||
+       lowerPlaceholder.includes("user") ||
+       lowerPlaceholder.includes("username"))
+    ) {
+      usernameField = field.selector;
+    }
+    
+    // Detect password field
+    if (field.type === "password") {
+      passwordField = field.selector;
+    }
+  }
+  
+  return {
+    isLogin: !!(usernameField && passwordField),
+    usernameField,
+    passwordField,
+  };
+}
+
+/**
+ * Generate appropriate value for a field based on its characteristics
+ */
+function generateValueForField(
+  info: {
+    type: string;
+    name: string;
+    placeholder: string;
+    label: string;
+  },
+  loginCredentials?: { username: string; password: string },
+  isUsernameField?: boolean,
+  isPasswordField?: boolean
+): string {
+  // Use login credentials if this is a login form
+  if (isUsernameField && loginCredentials) {
+    return loginCredentials.username;
+  }
+  if (isPasswordField && loginCredentials) {
+    return loginCredentials.password;
+  }
+  
   const lowerName = info.name.toLowerCase();
   const lowerLabel = info.label.toLowerCase();
   const lowerPlaceholder = info.placeholder.toLowerCase();

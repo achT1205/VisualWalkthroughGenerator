@@ -18,6 +18,7 @@ export interface CrawlOptions {
   routesFromCode?: string[]; // Routes extracted from codebase analysis
   autoFillForms?: boolean; // Automatically fill and submit forms
   formFields?: Array<{ selector: string; value: string }>; // Custom form field values
+  loginCredentials?: { username: string; password: string }; // Login credentials for authentication
 }
 
 export interface CrawlResult {
@@ -402,7 +403,7 @@ export async function crawlWebsite(
           }));
           
           // Fill and submit form
-          const formFilled = await autoFillForm(page, customFields);
+          const formFilled = await autoFillForm(page, customFields, options.loginCredentials);
           if (formFilled) {
             // Wait for navigation or page update
             await page.waitForTimeout(3000);
