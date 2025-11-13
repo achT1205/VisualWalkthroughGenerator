@@ -1,0 +1,165 @@
+═══════════════════════════════════════════════════════════════
+SLIDE 1: TITLE SLIDE
+═══════════════════════════════════════════════════════════════
+
+🎥 Visual Walkthrough Generator
+AI-Powered Documentation Tool for Web Applications
+
+[Your Name/Team Name]
+Hackathon 2025
+
+═══════════════════════════════════════════════════════════════
+SLIDE 2: THE PROBLEM
+═══════════════════════════════════════════════════════════════
+
+❌ Manual Documentation Challenges
+
+• Time-consuming (4-6 hours per project)
+• Error-prone and incomplete
+• Screenshots become outdated quickly
+• Understanding codebases requires extensive exploration
+• Onboarding new developers is slow
+
+═══════════════════════════════════════════════════════════════
+SLIDE 3: OUR SOLUTION
+═══════════════════════════════════════════════════════════════
+
+✨ Visual Walkthrough Generator
+
+An AI-powered CLI tool that automatically generates:
+• Visual walkthroughs with screenshots
+• Codebase architecture documentation
+• Interactive navigation diagrams
+• Professional documentation in minutes
+
+One command → Complete documentation
+
+═══════════════════════════════════════════════════════════════
+SLIDE 4: KEY FEATURES
+═══════════════════════════════════════════════════════════════
+
+🕷️ Auto-Crawl
+   → Discovers all pages automatically
+   → Handles forms and interactive elements
+
+📚 Codebase Analysis
+   → Two-phase AI analysis
+   → Extracts architecture, components, routes
+
+🤖 AI-Powered
+   → GPT-4o Vision generates intelligent descriptions
+   → Context-aware documentation
+
+📸 Visual Output
+   → Full-page screenshots
+   → Interactive Mermaid diagrams
+   → HTML + Markdown formats
+
+═══════════════════════════════════════════════════════════════
+SLIDE 5: DEMO
+═══════════════════════════════════════════════════════════════
+
+💻 Live Demo
+
+Command:
+  node dist/index.js https://example.com --crawl --analyze-code
+
+Results:
+  ✅ 15 pages discovered
+  ✅ 8 routes documented
+  ✅ Interactive navigation diagram
+  ✅ Comprehensive architecture docs
+
+Time: 5 minutes vs 4-6 hours manually
+
+═══════════════════════════════════════════════════════════════
+SLIDE 6: TECH STACK
+═══════════════════════════════════════════════════════════════
+
+🛠️ Built With
+
+• TypeScript - Type-safe, modern development
+• Playwright - Reliable browser automation
+• OpenAI GPT-4o - Advanced AI vision
+• Mermaid.js - Interactive diagrams
+
+═══════════════════════════════════════════════════════════════
+SLIDE 7: USE CASES
+═══════════════════════════════════════════════════════════════
+
+🎯 Real-World Applications
+
+✅ Developer Onboarding
+   → Help new team members understand codebase
+
+✅ Client Deliverables
+   → Professional documentation for stakeholders
+
+✅ QA Documentation
+   → Document application flows automatically
+
+✅ Code Reviews
+   → Understand project structure quickly
+
+═══════════════════════════════════════════════════════════════
+SLIDE 8: IMPACT
+═══════════════════════════════════════════════════════════════
+
+📊 Before vs After
+
+BEFORE:
+  ⏱️ 4-6 hours manual work
+  📉 Often outdated
+  ❌ Incomplete coverage
+
+AFTER:
+  ⚡ 5-10 minutes automated
+  ✅ Always up-to-date
+  📊 Comprehensive coverage
+
+═══════════════════════════════════════════════════════════════
+SLIDE 9: WHAT MAKES US UNIQUE
+═══════════════════════════════════════════════════════════════
+
+🌟 Differentiators
+
+1. Combined Analysis
+   → Interface + Codebase in one tool
+
+2. Intelligent Crawling
+   → Handles forms, SPAs, dynamic content
+
+3. Code Previews
+   → AI analyzes actual code, not just metadata
+
+4. Zero Configuration
+   → Works out of the box
+
+5. Multiple Outputs
+   → Markdown + HTML with interactive diagrams
+
+═══════════════════════════════════════════════════════════════
+SLIDE 10: FUTURE VISION
+═══════════════════════════════════════════════════════════════
+
+🔮 Roadmap
+
+• JIRA/Confluence integration
+• Video walkthrough generation
+• Multi-language support
+• Custom theme templates
+• Analytics and insights
+
+═══════════════════════════════════════════════════════════════
+SLIDE 11: THANK YOU
+═══════════════════════════════════════════════════════════════
+
+🙏 Thank You!
+
+Questions?
+
+GitHub: [Your Repo]
+Demo: [Live Demo]
+
+🎥 Visual Walkthrough Generator
+
