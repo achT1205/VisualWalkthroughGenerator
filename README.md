@@ -178,7 +178,12 @@ npm run dev https://example.com
 The tool generates:
 
 - **`WALKTHROUGH.md`**: Main documentation file with screenshots and descriptions
+- **`WALKTHROUGH.html`**: HTML version with **interactive Mermaid diagrams** that render directly in your browser (generated automatically when multiple pages are documented)
 - **`images/`**: Folder containing all captured screenshots
+
+**💡 Viewing Mermaid Diagrams:**
+- **Markdown**: Use a viewer that supports Mermaid (GitHub, GitLab, VS Code with Mermaid extension, or [Mermaid Live Editor](https://mermaid.live))
+- **HTML**: Simply open `WALKTHROUGH.html` in any web browser - diagrams render automatically!
 
 ## 📁 Project Structure
 

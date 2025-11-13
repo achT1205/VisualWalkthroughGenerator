@@ -308,6 +308,7 @@ export async function buildMarkdown(
     // Add Mermaid diagram if we have multiple pages
     if (pages.length > 1) {
       content += "## 🗺️ Navigation Flow\n\n";
+      content += `> **💡 Tip:** To view the Mermaid diagram, use a markdown viewer that supports Mermaid (GitHub, GitLab, VS Code with Mermaid extension, or [Mermaid Live Editor](https://mermaid.live)). Alternatively, use the generated HTML version (see below).\n\n`;
       content += generateMermaidDiagram(pages);
       content += "\n---\n\n";
     }
@@ -382,5 +383,242 @@ export async function buildMarkdown(
   // Write to file
   writeFileSync(config.outputFile, content, "utf-8");
   console.log(`✅ Markdown documentation saved to: ${config.outputFile}`);
+
+  // Generate HTML version with Mermaid.js support for direct browser viewing
+  if (hasPages && pages.length > 1) {
+    const htmlFile = config.outputFile.replace(/\.md$/, ".html");
+    generateHtmlWithMermaid(content, htmlFile, config);
+    console.log(`✅ HTML version with Mermaid diagrams saved to: ${htmlFile}`);
+  }
+}
+
+/**
+ * Generate HTML version with embedded Mermaid.js for direct browser viewing
+ */
+function generateHtmlWithMermaid(markdownContent: string, outputPath: string, config: Config): void {
+  // Extract Mermaid diagrams from markdown and replace with placeholders
+  const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
+  const mermaidDiagrams: Array<{ id: string; content: string }> = [];
+  let mermaidIndex = 0;
+  
+  let htmlContent = markdownContent.replace(mermaidRegex, (match, diagram) => {
+    const id = `mermaid-${mermaidIndex++}`;
+    mermaidDiagrams.push({ id, content: diagram.trim() });
+    return `MERMAID_PLACEHOLDER_${id}`;
+  });
+
+  // Convert markdown to HTML (improved conversion)
+  const lines = htmlContent.split('\n');
+  let inCodeBlock = false;
+  let codeBlockLang = '';
+  let codeBlockContent: string[] = [];
+  const htmlLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Handle code blocks
+    if (line.startsWith('```')) {
+      if (inCodeBlock) {
+        // End code block
+        htmlLines.push(`<pre><code class="language-${codeBlockLang}">${codeBlockContent.join('\n')}</code></pre>`);
+        codeBlockContent = [];
+        inCodeBlock = false;
+        codeBlockLang = '';
+      } else {
+        // Start code block
+        codeBlockLang = line.substring(3).trim() || 'text';
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockContent.push(line);
+      continue;
+    }
+
+    // Handle Mermaid placeholders
+    if (line.includes('MERMAID_PLACEHOLDER_')) {
+      const match = line.match(/MERMAID_PLACEHOLDER_(\S+)/);
+      if (match) {
+        htmlLines.push(`<div class="mermaid" id="${match[1]}"></div>`);
+      }
+      continue;
+    }
+
+    // Headers
+    if (line.startsWith('# ')) {
+      htmlLines.push(`<h1>${escapeHtml(line.substring(2))}</h1>`);
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      htmlLines.push(`<h2>${escapeHtml(line.substring(3))}</h2>`);
+      continue;
+    }
+    if (line.startsWith('### ')) {
+      htmlLines.push(`<h3>${escapeHtml(line.substring(4))}</h3>`);
+      continue;
+    }
+    if (line.startsWith('#### ')) {
+      htmlLines.push(`<h4>${escapeHtml(line.substring(5))}</h4>`);
+      continue;
+    }
+
+    // Horizontal rule
+    if (line.trim() === '---' || line.trim() === '***') {
+      htmlLines.push('<hr>');
+      continue;
+    }
+
+    // Blockquote
+    if (line.startsWith('> ')) {
+      htmlLines.push(`<blockquote>${convertInlineMarkdown(line.substring(2))}</blockquote>`);
+      continue;
+    }
+
+    // Empty line
+    if (line.trim() === '') {
+      htmlLines.push('');
+      continue;
+    }
+
+    // Regular paragraph
+    htmlLines.push(`<p>${convertInlineMarkdown(line)}</p>`);
+  }
+
+  htmlContent = htmlLines.join('\n');
+
+  // Inject Mermaid diagram content into the divs
+  mermaidDiagrams.forEach((diagram) => {
+    htmlContent = htmlContent.replace(
+      new RegExp(`<div class="mermaid" id="${diagram.id}"></div>`),
+      `<div class="mermaid" id="${diagram.id}">${diagram.content}</div>`
+    );
+  });
+
+  // Wrap in HTML structure
+  const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Walkthrough Documentation</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #fff;
+        }
+        h1, h2, h3, h4 {
+            color: #2c3e50;
+            margin-top: 2em;
+            margin-bottom: 1em;
+        }
+        h1 { border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { border-bottom: 2px solid #ecf0f1; padding-bottom: 8px; }
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        .mermaid {
+            margin: 30px 0;
+            text-align: center;
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 200px;
+        }
+        blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background-color: #f8f9fa;
+            font-style: italic;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        hr {
+            border: none;
+            border-top: 2px solid #ecf0f1;
+            margin: 30px 0;
+        }
+        p {
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    ${htmlContent}
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>`;
+
+  writeFileSync(outputPath, fullHtml, "utf-8");
+}
+
+/**
+ * Convert inline markdown to HTML
+ */
+function convertInlineMarkdown(text: string): string {
+  return escapeHtml(text)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code>$1</code>')
+    .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" />')
+    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
