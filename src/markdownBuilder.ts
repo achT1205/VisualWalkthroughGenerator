@@ -272,8 +272,9 @@ export async function buildMarkdown(
     content += "\n---\n\n";
   }
 
-  // Add each page section
-  pages.forEach((page, index) => {
+  // Add each page section (only if we have pages)
+  if (hasPages) {
+    pages.forEach((page, index) => {
     const relativeImagePath = path.relative(
       path.dirname(config.outputFile) || ".",
       page.filename
@@ -304,11 +305,18 @@ export async function buildMarkdown(
     content += `> ${page.description}\n\n`;
     content += `*Screenshot captured: ${page.timestamp.toLocaleString()}*\n\n`;
     content += "---\n\n";
-  });
+    });
+  }
 
   // Add footer
   content += `\n---\n\n`;
-  content += `*This walkthrough was automatically generated using AI-powered visual analysis.*\n`;
+  if (hasPages && hasCodeDocs) {
+    content += `*This documentation was automatically generated using AI-powered visual analysis and codebase analysis.*\n`;
+  } else if (hasPages) {
+    content += `*This walkthrough was automatically generated using AI-powered visual analysis.*\n`;
+  } else if (hasCodeDocs) {
+    content += `*This codebase documentation was automatically generated using AI-powered code analysis.*\n`;
+  }
 
   // Write to file
   writeFileSync(config.outputFile, content, "utf-8");
