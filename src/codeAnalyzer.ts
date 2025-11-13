@@ -196,18 +196,37 @@ function shouldIncludeFile(
   filePath: string,
   options: CodeAnalysisOptions
 ): boolean {
-  // Check exclude patterns
+  const fileName = path.basename(filePath);
+  const fileExt = path.extname(filePath).toLowerCase();
+  
+  // Check for excluded file extensions (.dll, .pdb, etc.)
+  const excludedExtensions = [".dll", ".pdb", ".exe", ".so", ".dylib", ".bin"];
+  if (excludedExtensions.includes(fileExt)) {
+    return false;
+  }
+
+  // Check exclude patterns (folders and file names)
   for (const pattern of options.excludePatterns) {
-    if (filePath.includes(pattern)) {
+    // Normalize path separators for cross-platform compatibility
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    const normalizedPattern = pattern.replace(/\\/g, "/");
+    
+    // Check if pattern matches file path or name
+    if (normalizedPath.includes(normalizedPattern) || 
+        fileName.includes(pattern) ||
+        normalizedPath.includes(`/${pattern}/`) ||
+        normalizedPath.endsWith(`/${pattern}`)) {
       return false;
     }
   }
 
   // Check include patterns (if any specified)
   if (options.includePatterns.length > 0) {
-    const matches = options.includePatterns.some((pattern) =>
-      filePath.includes(pattern)
-    );
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    const matches = options.includePatterns.some((pattern) => {
+      const normalizedPattern = pattern.replace(/\\/g, "/");
+      return normalizedPath.includes(normalizedPattern) || fileName.includes(pattern);
+    });
     if (!matches) {
       return false;
     }
