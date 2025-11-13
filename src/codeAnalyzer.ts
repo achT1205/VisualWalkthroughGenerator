@@ -199,9 +199,19 @@ function shouldIncludeFile(
   const fileName = path.basename(filePath);
   const fileExt = path.extname(filePath).toLowerCase();
   
-  // Check for excluded file extensions (.dll, .pdb, etc.)
-  const excludedExtensions = [".dll", ".pdb", ".exe", ".so", ".dylib", ".bin"];
+  // Check for excluded file extensions (.dll, .pdb, .woff, .scss, .d.ts, etc.)
+  const excludedExtensions = [
+    ".dll", ".pdb", ".exe", ".so", ".dylib", ".bin",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot", // Font files
+    ".scss", ".sass", // Sass/SCSS files
+    ".d.ts" // TypeScript declaration files
+  ];
   if (excludedExtensions.includes(fileExt)) {
+    return false;
+  }
+  
+  // Also check for .d.ts files (TypeScript declaration files)
+  if (fileName.endsWith(".d.ts")) {
     return false;
   }
 
