@@ -66,21 +66,36 @@ function buildComprehensiveCodeSection(
     content += `${analysis.architecture}\n\n`;
   }
 
+  // Features
+  if (analysis.features && analysis.features.length > 0) {
+    content += "### ✨ Main Features\n\n";
+    analysis.features.forEach((feature) => {
+      content += `- ${feature}\n`;
+    });
+    content += "\n";
+  }
+
   // Technologies
   if (analysis.technologies.length > 0) {
     content += "### 🛠️ Technologies\n\n";
-    content += `- ${analysis.technologies.join("\n- ")}\n\n`;
+    analysis.technologies.forEach((tech) => {
+      content += `- ${tech}\n`;
+    });
+    content += "\n";
   }
 
   // Patterns
   if (analysis.patterns.length > 0) {
     content += "### 🎨 Design Patterns\n\n";
-    content += `- ${analysis.patterns.join("\n- ")}\n\n`;
+    analysis.patterns.forEach((pattern) => {
+      content += `- ${pattern}\n`;
+    });
+    content += "\n";
   }
 
   // Components
   if (analysis.components.length > 0) {
-    content += "### 🧩 Components\n\n";
+    content += "### 🧩 Components & Views\n\n";
     analysis.components.forEach((comp) => {
       content += `#### \`${comp.name}\`\n\n`;
       content += `**File:** \`${comp.file}\`\n\n`;
@@ -91,10 +106,12 @@ function buildComprehensiveCodeSection(
 
   // Routes
   if (analysis.routes.length > 0) {
-    content += "### 🛣️ Routes\n\n";
+    content += "### 🛣️ Routes & Navigation\n\n";
     analysis.routes.forEach((route) => {
-      content += `- **\`${route.path}\`** (${route.file})\n`;
-      content += `  ${route.description}\n\n`;
+      content += `#### \`${route.path}\`\n\n`;
+      content += `**File:** \`${route.file}\`\n\n`;
+      content += `**Description:** ${route.description}\n\n`;
+      content += "---\n\n";
     });
   }
 
@@ -102,21 +119,24 @@ function buildComprehensiveCodeSection(
   if (analysis.apis.length > 0) {
     content += "### 🔌 API Endpoints\n\n";
     analysis.apis.forEach((api) => {
-      content += `- **\`${api.endpoint}\`**`;
+      content += `#### \`${api.endpoint}\`\n\n`;
       if (api.method) {
-        content += ` [${api.method}]`;
+        content += `**Method:** ${api.method}\n\n`;
       }
-      content += ` (${api.file})\n`;
-      content += `  ${api.description}\n\n`;
+      content += `**File:** \`${api.file}\`\n\n`;
+      content += `**Description:** ${api.description}\n\n`;
+      content += "---\n\n";
     });
   }
 
   // Key Files
   if (analysis.keyFiles.length > 0) {
-    content += "### 📄 Key Files\n\n";
+    content += "### 📄 Key Files & Structure\n\n";
     analysis.keyFiles.forEach((file) => {
-      content += `- **\`${file.path}\`** (${file.type})\n`;
-      content += `  ${file.importance}\n\n`;
+      content += `#### \`${file.path}\`\n\n`;
+      content += `**Type:** ${file.type}\n\n`;
+      content += `**Importance:** ${file.importance}\n\n`;
+      content += "---\n\n";
     });
   }
 

@@ -35,6 +35,7 @@ export interface CodeDocumentation {
 export interface ComprehensiveCodeAnalysis {
   overview: string;
   architecture: string;
+  features?: string[]; // Main features of the application
   components: {
     name: string;
     file: string;
@@ -372,6 +373,9 @@ export async function generateComprehensiveAnalysis(
           name: c,
           file: d.file.path,
           type: d.file.type,
+          language: d.file.language,
+          // Include first 500 chars of content for context
+          codePreview: d.file.content.substring(0, 500),
         }))
       ),
     routes: codeDocs
@@ -380,6 +384,8 @@ export async function generateComprehensiveAnalysis(
         (d.routes || []).map((r) => ({
           path: r,
           file: d.file.path,
+          // Include route definition context
+          codePreview: d.file.content.substring(0, 500),
         }))
       ),
     apis: codeDocs
@@ -388,6 +394,7 @@ export async function generateComprehensiveAnalysis(
         (d.apis || []).map((a) => ({
           endpoint: a,
           file: d.file.path,
+          codePreview: d.file.content.substring(0, 500),
         }))
       ),
     fileSummaries: codeDocs
@@ -398,9 +405,40 @@ export async function generateComprehensiveAnalysis(
         summary: d.summary,
         language: d.file.language,
       })),
+    // Include all important files with their content previews
+    keyFiles: codeDocs
+      .filter((d) => 
+        d.file.type === "component" || 
+        d.file.type === "route" || 
+        d.file.type === "api" ||
+        d.file.path.includes("/views/") ||
+        d.file.path.includes("/components/") ||
+        d.file.path.includes("/stores/") ||
+        d.file.path.includes("/router/")
+      )
+      .map((d) => ({
+        path: d.file.path,
+        type: d.file.type,
+        language: d.file.language,
+        summary: d.summary,
+        components: d.components || [],
+        functions: d.functions || [],
+        routes: d.routes || [],
+        // Include code preview (first 1000 chars) for better analysis
+        codePreview: d.file.content.substring(0, 1000),
+        // Include file size for context
+        size: d.file.content.length,
+      })),
     technologies: [
       ...new Set(codeDocs.map((d) => d.file.language)),
     ],
+    // Group files by directory for better structure understanding
+    fileStructure: {
+      views: codeDocs.filter((d) => d.file.path.includes("/views/")).map((d) => d.file.path),
+      components: codeDocs.filter((d) => d.file.path.includes("/components/")).map((d) => d.file.path),
+      stores: codeDocs.filter((d) => d.file.path.includes("/stores/")).map((d) => d.file.path),
+      router: codeDocs.filter((d) => d.file.path.includes("/router/")).map((d) => d.file.path),
+    },
   };
 
   const OpenAI = (await import("openai")).default;
@@ -420,52 +458,94 @@ export async function generateComprehensiveAnalysis(
         {
           role: "system",
           content: `You are an expert software architect and technical documentation specialist. 
-Analyze the provided codebase structure and generate comprehensive documentation that includes:
-1. A high-level overview of what the application does
-2. Architecture description (patterns, structure, organization)
-3. Component descriptions with their purposes
-4. Route descriptions
-5. API endpoint documentation
-6. Key files and their importance
-7. Design patterns identified
-8. Technologies used
+Analyze the provided codebase structure and generate COMPREHENSIVE, DETAILED documentation that includes:
 
-Be comprehensive, clear, and focus on helping developers understand the codebase structure and purpose.`,
+1. **Overview**: A detailed, high-level description of what the application does, its purpose, main features, and target users. Be specific and descriptive.
+
+2. **Architecture**: Detailed architecture description including:
+   - Framework and patterns used (e.g., Vue.js, component-based, MVC, etc.)
+   - Directory structure and organization
+   - State management approach
+   - Routing strategy
+   - Data flow patterns
+
+3. **Components**: For EACH component/view, provide:
+   - What it does (detailed functionality)
+   - Its role in the application
+   - Key features and capabilities
+   - How it relates to other components
+
+4. **Routes**: For EACH route, provide:
+   - What page/screen it displays
+   - User flow and navigation context
+   - Parameters and their purpose
+   - Related components/views
+
+5. **Key Files**: For important files, explain:
+   - Their purpose and responsibility
+   - Why they're important
+   - What they contain/export
+
+6. **Design Patterns**: Identify and explain patterns used (e.g., Component Pattern, Router Pattern, Store Pattern, etc.)
+
+7. **Technologies**: List all technologies, frameworks, and libraries used
+
+8. **Features**: List main features and capabilities of the application
+
+Be VERY comprehensive, detailed, and specific. Write as if documenting for developers who need to understand the entire application. Use the code previews to infer actual functionality.`,
         },
         {
           role: "user",
-          content: `Analyze this codebase:
+          content: `Analyze this codebase in detail:
 
 **Total Files:** ${structuredData.totalFiles}
 **Technologies:** ${structuredData.technologies.join(", ")}
 
+**File Structure:**
+- Views: ${structuredData.fileStructure.views.length} files
+- Components: ${structuredData.fileStructure.components.length} files
+- Stores: ${structuredData.fileStructure.stores.length} files
+- Router: ${structuredData.fileStructure.router.length} files
+
 **Components Found:**
-${structuredData.components.map((c) => `- ${c.name} (${c.file})`).join("\n")}
+${structuredData.components.map((c) => `- ${c.name} (${c.file}, ${c.type}, ${c.language})`).join("\n")}
 
 **Routes Found:**
 ${structuredData.routes.map((r) => `- ${r.path} (${r.file})`).join("\n")}
 
 **API Endpoints Found:**
-${structuredData.apis.map((a) => `- ${a.endpoint} (${a.file})`).join("\n")}
+${structuredData.apis.length > 0 ? structuredData.apis.map((a) => `- ${a.endpoint} (${a.file})`).join("\n") : "None found"}
 
-**Key File Summaries:**
-${structuredData.fileSummaries.map((f) => `- ${f.path} (${f.type}, ${f.language}): ${f.summary}`).join("\n")}
+**Key Files with Code Context:**
+${structuredData.keyFiles.map((f) => `
+**${f.path}** (${f.type}, ${f.language}, ${f.size} chars)
+- Components: ${f.components.join(", ") || "None"}
+- Functions: ${f.functions.slice(0, 5).join(", ") || "None"}
+- Routes: ${f.routes.join(", ") || "None"}
+- Code Preview:
+\`\`\`${f.language}
+${f.codePreview}
+\`\`\`
+`).join("\n")}
 
-Generate a comprehensive analysis in JSON format with this structure:
+Generate a COMPREHENSIVE and DETAILED analysis in JSON format with this structure:
 {
-  "overview": "High-level description of the application",
-  "architecture": "Architecture description, patterns, and structure",
-  "components": [{"name": "...", "file": "...", "description": "..."}],
-  "routes": [{"path": "...", "file": "...", "description": "..."}],
-  "apis": [{"endpoint": "...", "method": "...", "file": "...", "description": "..."}],
-  "keyFiles": [{"path": "...", "type": "...", "importance": "..."}],
-  "patterns": ["pattern1", "pattern2"],
-  "technologies": ["tech1", "tech2"]
-}`,
+  "overview": "Detailed, comprehensive description of what the application does, its purpose, main features, target users, and use cases. Be very specific and descriptive.",
+  "architecture": "Detailed architecture description including framework, patterns, directory structure, state management, routing, and data flow. Be comprehensive.",
+  "features": ["Feature 1", "Feature 2", ...],
+  "components": [{"name": "...", "file": "...", "description": "Detailed description of what this component does, its purpose, features, and role in the application"}],
+  "routes": [{"path": "...", "file": "...", "description": "Detailed description of what this route displays, user flow, parameters, and related components"}],
+  "apis": [{"endpoint": "...", "method": "...", "file": "...", "description": "Detailed API endpoint documentation"}],
+  "keyFiles": [{"path": "...", "type": "...", "importance": "Detailed explanation of why this file is important and what it contains"}],
+  "patterns": ["Pattern 1 with explanation", "Pattern 2 with explanation"],
+  "technologies": ["Technology 1", "Technology 2", ...]
+}
+
+Be VERY detailed and comprehensive. Analyze the code previews to understand actual functionality.`,
         },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 2000,
+      max_tokens: 4000, // Increased for more comprehensive documentation
     });
 
     const analysis = JSON.parse(
@@ -476,6 +556,7 @@ Generate a comprehensive analysis in JSON format with this structure:
     return {
       overview: analysis.overview || "No overview available.",
       architecture: analysis.architecture || "No architecture description available.",
+      features: analysis.features || [],
       components: analysis.components || [],
       routes: analysis.routes || [],
       apis: analysis.apis || [],
