@@ -93,7 +93,13 @@ export function getCrawlConfig(): CrawlConfig {
   const excludeIndex = args.indexOf("--exclude");
   const excludePatterns = excludeIndex !== -1 && args[excludeIndex + 1]
     ? args[excludeIndex + 1].split(",").map((p) => p.trim())
-    : ["#", "mailto:", "tel:", "javascript:", ".pdf", ".jpg", ".png", ".zip"];
+    : [
+        "#", "mailto:", "tel:", "javascript:", 
+        ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico",
+        ".css", ".js", ".json", ".xml", ".zip", ".tar", ".gz",
+        "/css/", "/js/", "/img/", "/images/", "/assets/", "/static/",
+        "manifest.json", "robots.txt", "sitemap.xml"
+      ];
 
   // Parse --include patterns
   const includeIndex = args.indexOf("--include");

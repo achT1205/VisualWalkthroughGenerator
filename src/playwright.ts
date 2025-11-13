@@ -77,13 +77,12 @@ export async function captureScreenshots(
       const url = urls[i];
       const normalizedUrl = normalizeUrl(url);
       
-      // Skip if already captured
+      // Skip if already captured (but don't add yet - add after successful capture)
       if (capturedUrls.has(normalizedUrl)) {
         console.log(`📸 [${i + 1}/${urls.length}] Skipping duplicate: ${url}`);
         continue;
       }
       
-      capturedUrls.add(normalizedUrl);
       console.log(`📸 [${i + 1}/${urls.length}] Capturing: ${url}`);
 
       try {
@@ -232,55 +231,19 @@ export async function captureScreenshots(
               }
             } else {
               // Form wasn't submitted, just use before screenshot
-              const normalizedUrl = normalizeUrl(url);
-              if (!capturedUrls.has(normalizedUrl)) {
-                results.push({
-                  url,
-                  title,
-                  filename: beforeFormFilename,
-                  timestamp: new Date(),
-                  hasForm: true,
-                  beforeFormFilename,
-                });
-                capturedUrls.add(normalizedUrl);
-                console.log(`✅ Captured: ${title} (form detected but not submitted) - ${url}`);
-              } else {
-                console.log(`   ⚠️  Skipping duplicate capture: ${url}`);
-              }
-            }
-          } else {
-            // No form, capture normally
-            const normalizedUrl = normalizeUrl(url);
-            if (!capturedUrls.has(normalizedUrl)) {
-              const filename = path.join(
-                config.imagesDir,
-                `${sanitizedTitle}_${Date.now()}.png`
-              );
-
-              await page.screenshot({
-                path: filename,
-                fullPage: config.screenshotOptions.fullPage,
-              });
-
               results.push({
                 url,
                 title,
-                filename,
+                filename: beforeFormFilename,
                 timestamp: new Date(),
-                hasForm: false,
+                hasForm: true,
+                beforeFormFilename,
               });
-
               capturedUrls.add(normalizedUrl);
-              console.log(`✅ Captured: ${title} - ${url}`);
-            } else {
-              console.log(`   ⚠️  Skipping duplicate capture: ${url}`);
+              console.log(`✅ Captured: ${title} (form detected but not submitted) - ${url}`);
             }
-          }
-        } catch (error) {
-          // Fallback: capture normally if form handling fails
-          console.log(`   ⚠️  Form handling error, capturing normally: ${error}`);
-          const normalizedUrl = normalizeUrl(url);
-          if (!capturedUrls.has(normalizedUrl)) {
+          } else {
+            // No form, capture normally
             const filename = path.join(
               config.imagesDir,
               `${sanitizedTitle}_${Date.now()}.png`
@@ -301,9 +264,30 @@ export async function captureScreenshots(
 
             capturedUrls.add(normalizedUrl);
             console.log(`✅ Captured: ${title} - ${url}`);
-          } else {
-            console.log(`   ⚠️  Skipping duplicate capture: ${url}`);
           }
+        } catch (error) {
+          // Fallback: capture normally if form handling fails
+          console.log(`   ⚠️  Form handling error, capturing normally: ${error}`);
+          const filename = path.join(
+            config.imagesDir,
+            `${sanitizedTitle}_${Date.now()}.png`
+          );
+
+          await page.screenshot({
+            path: filename,
+            fullPage: config.screenshotOptions.fullPage,
+          });
+
+          results.push({
+            url,
+            title,
+            filename,
+            timestamp: new Date(),
+            hasForm: false,
+          });
+
+          capturedUrls.add(normalizedUrl);
+          console.log(`✅ Captured: ${title} - ${url}`);
         }
       } catch (error) {
         const errorMessage =
