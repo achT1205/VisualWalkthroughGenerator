@@ -182,12 +182,35 @@ async function extractLinks(page: Page, baseUrl: string): Promise<string[]> {
         }
       }
 
-      // 4. Navigation elements (nav, menu, etc.)
-      const navElements = Array.from(document.querySelectorAll("nav a, menu a, [role='navigation'] a, [role='menuitem']"));
+      // 4. Navigation elements (nav, menu, header, footer, etc.)
+      const navElements = Array.from(document.querySelectorAll("nav a, menu a, [role='navigation'] a, [role='menuitem'], header a, footer a"));
       for (const nav of navElements) {
         const href = (nav as HTMLAnchorElement).href || (nav as HTMLElement).getAttribute('href');
         if (href && href.trim() && !href.startsWith('#')) {
           urls.push(href);
+        }
+      }
+      
+      // 4b. Product/item links (common in e-commerce)
+      const productLinks = Array.from(document.querySelectorAll("[class*='product'], [class*='item'], [class*='card'] a, [data-product], [data-item]"));
+      for (const productLink of productLinks) {
+        const href = (productLink as HTMLAnchorElement).href || (productLink as HTMLElement).getAttribute('href');
+        if (href && href.trim() && !href.startsWith('#')) {
+          urls.push(href);
+        }
+      }
+      
+      // 4c. Shopping cart and checkout links/buttons
+      const cartElements = Array.from(document.querySelectorAll("[class*='cart'], [class*='checkout'], [id*='cart'], [id*='checkout'], [href*='cart'], [href*='checkout'], [aria-label*='cart'], [aria-label*='checkout']"));
+      for (const cartEl of cartElements) {
+        const href = (cartEl as HTMLAnchorElement).href || (cartEl as HTMLElement).getAttribute('href');
+        if (href && href.trim() && !href.startsWith('#')) {
+          urls.push(href);
+        }
+        // Also check if it's inside a link
+        const parentLink = cartEl.closest('a');
+        if (parentLink && parentLink.href) {
+          urls.push(parentLink.href);
         }
       }
 
@@ -237,11 +260,74 @@ async function extractLinks(page: Page, baseUrl: string): Promise<string[]> {
 
         // Normalize the URL
         const normalized = normalizeUrl(absoluteUrl);
-        normalizedLinks.push(normalized);
+        
+        // Only include if same origin and not a fragment
+        if (normalized.startsWith(baseUrlObj.origin) && !normalized.includes("#")) {
+          normalizedLinks.push(normalized);
+        }
       } catch {
         // Skip invalid URLs
         continue;
       }
+    }
+
+    // Additional pass: Look for common e-commerce patterns in the page
+    try {
+      const additionalLinks = await page.evaluate((base) => {
+        const baseUrlObj = new URL(base);
+        const found: string[] = [];
+        
+        // Look for cart icons/links (SVG icons, images, etc.)
+        const cartIcons = document.querySelectorAll('[class*="shopping"], [class*="cart"], [id*="cart"], svg[class*="cart"], img[alt*="cart"], img[src*="cart"]');
+        cartIcons.forEach(icon => {
+          const link = icon.closest('a');
+          if (link && link.href && !link.href.includes('#')) {
+            found.push(link.href);
+          }
+        });
+        
+        // Look for product images that are clickable
+        const productImages = document.querySelectorAll('img[src*="product"], img[src*="item"], [class*="product"] img, [class*="item"] img');
+        productImages.forEach(img => {
+          const link = img.closest('a');
+          if (link && link.href && !link.href.includes('#')) {
+            found.push(link.href);
+          }
+        });
+        
+        // Look for "Add to cart" buttons and find their product links
+        const allButtons = document.querySelectorAll('button, [role="button"], [class*="button"], [class*="btn"]');
+        allButtons.forEach(btn => {
+          const btnText = (btn.textContent || '').toLowerCase();
+          const btnClass = (btn.className || '').toLowerCase();
+          if (btnText.includes('add') || btnText.includes('cart') || btnClass.includes('add-to-cart') || btnClass.includes('cart')) {
+            // Try to find product link nearby
+            const productCard = btn.closest('[class*="product"], [class*="item"], [class*="card"]');
+            if (productCard) {
+              const productLink = productCard.querySelector('a');
+              if (productLink && productLink.href && !productLink.href.includes('#')) {
+                found.push(productLink.href);
+              }
+            }
+          }
+        });
+        
+        return found;
+      }, baseUrl);
+      
+      // Add additional links found
+      for (const link of additionalLinks) {
+        try {
+          const normalized = normalizeUrl(link);
+          if (normalized.startsWith(baseUrlObj.origin) && !normalized.includes("#")) {
+            normalizedLinks.push(normalized);
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch {
+      // Ignore errors in additional extraction
     }
 
     return [...new Set(normalizedLinks)]; // Remove duplicates
