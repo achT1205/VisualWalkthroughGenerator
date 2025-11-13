@@ -227,8 +227,12 @@ export async function buildMarkdown(
   codeDocs?: CodeDocumentation[],
   comprehensiveAnalysis?: ComprehensiveCodeAnalysis
 ): Promise<void> {
-  if (pages.length === 0) {
-    console.warn("⚠️  No pages to document. Skipping markdown generation.");
+  // Check if we have anything to document
+  const hasPages = pages.length > 0;
+  const hasCodeDocs = (comprehensiveAnalysis !== undefined) || (codeDocs && codeDocs.length > 0);
+  
+  if (!hasPages && !hasCodeDocs) {
+    console.warn("⚠️  No pages or code documentation to document. Skipping markdown generation.");
     return;
   }
 
@@ -240,28 +244,65 @@ export async function buildMarkdown(
     mkdirSync(outputDir, { recursive: true });
   }
 
-  let content = "# 🧭 Visual Walkthrough\n\n";
-  content += `*Generated on ${new Date().toLocaleString()}*\n\n`;
-  content += `This document provides a visual walkthrough of the application with AI-generated descriptions.\n\n`;
-
-  // Add table of contents
-  content += "## 📑 Table of Contents\n\n";
-  pages.forEach((page, index) => {
-    const anchor = page.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    content += `${index + 1}. [${page.title}](#${anchor})\n`;
-  });
-  content += "\n---\n\n";
-
-  // Add Mermaid diagram if we have multiple pages
-  if (pages.length > 1) {
-    content += "## 🗺️ Navigation Flow\n\n";
-    content += generateMermaidDiagram(pages);
+  // Determine document title based on content
+  let title = "# 🧭 Visual Walkthrough\n\n";
+  if (!hasPages && hasCodeDocs) {
+    title = "# 📚 Codebase Documentation\n\n";
+  } else if (hasPages && hasCodeDocs) {
+    title = "# 🧭 Visual Walkthrough & Codebase Documentation\n\n";
   }
 
-  // Add code documentation if available
+  let content = title;
+  content += `*Generated on ${new Date().toLocaleString()}*\n\n`;
+  
+  if (hasPages && hasCodeDocs) {
+    content += `This document provides a visual walkthrough of the application with AI-generated descriptions and comprehensive codebase analysis.\n\n`;
+  } else if (hasPages) {
+    content += `This document provides a visual walkthrough of the application with AI-generated descriptions.\n\n`;
+  } else if (hasCodeDocs) {
+    content += `This document provides comprehensive codebase analysis and documentation.\n\n`;
+  }
+
+  // Add table of contents (only if we have pages)
+  if (hasPages) {
+    content += "## 📑 Table of Contents\n\n";
+    pages.forEach((page, index) => {
+      const anchor = page.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      content += `${index + 1}. [${page.title}](#${anchor})\n`;
+    });
+    
+    // Add code documentation section to TOC if available
+    if (hasCodeDocs) {
+      const tocOffset = pages.length;
+      if (comprehensiveAnalysis) {
+        content += `${tocOffset + 1}. [Codebase Analysis](#codebase-analysis)\n`;
+      } else if (codeDocs && codeDocs.length > 0) {
+        content += `${tocOffset + 1}. [Code Documentation](#code-documentation)\n`;
+      }
+    }
+    content += "\n---\n\n";
+
+    // Add Mermaid diagram if we have multiple pages
+    if (pages.length > 1) {
+      content += "## 🗺️ Navigation Flow\n\n";
+      content += generateMermaidDiagram(pages);
+      content += "\n---\n\n";
+    }
+  } else {
+    // Codebase-only mode: Add TOC for code sections
+    content += "## 📑 Table of Contents\n\n";
+    if (comprehensiveAnalysis) {
+      content += `1. [Codebase Analysis](#codebase-analysis)\n`;
+    } else if (codeDocs && codeDocs.length > 0) {
+      content += `1. [Code Documentation](#code-documentation)\n`;
+    }
+    content += "\n---\n\n";
+  }
+
+  // Add code documentation if available (before pages in codebase-only mode, after TOC in mixed mode)
   if (comprehensiveAnalysis) {
     content += "\n";
     content += buildComprehensiveCodeSection(comprehensiveAnalysis);
