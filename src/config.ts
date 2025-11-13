@@ -43,9 +43,9 @@ export const defaultUrls: string[] = [
 // Default configuration
 export const defaultConfig: Config = {
   urls: defaultUrls,
-  outputDir: "./",
-  imagesDir: "./images",
-  outputFile: "WALKTHROUGH.md",
+  outputDir: "./output",
+  imagesDir: "./output/images",
+  outputFile: "./output/WALKTHROUGH.md",
   screenshotOptions: {
     fullPage: true,
     timeout: 60000, // 60 seconds (increased for slow-loading pages)

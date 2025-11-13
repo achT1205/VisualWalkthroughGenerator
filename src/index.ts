@@ -4,6 +4,7 @@
 
 import "dotenv/config";
 import { chromium } from "playwright";
+import { existsSync, mkdirSync } from "fs";
 import { captureScreenshots } from "./playwright.js";
 import { describeScreenshot } from "./openaiClient.js";
 import { buildMarkdown, type PageData } from "./markdownBuilder.js";
@@ -26,6 +27,14 @@ import {
  */
 async function main() {
   console.log("🎥 Visual Walkthrough Generator\n");
+
+  // Ensure output directory exists
+  if (!existsSync(defaultConfig.outputDir)) {
+    mkdirSync(defaultConfig.outputDir, { recursive: true });
+  }
+  if (!existsSync(defaultConfig.imagesDir)) {
+    mkdirSync(defaultConfig.imagesDir, { recursive: true });
+  }
 
   let urls: string[] = [];
   const crawlConfig = getCrawlConfig();

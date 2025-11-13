@@ -175,11 +175,13 @@ npm run dev https://example.com
 
 ### Output
 
-The tool generates:
+The tool generates all output files in the `output/` folder:
 
-- **`WALKTHROUGH.md`**: Main documentation file with screenshots and descriptions
-- **`WALKTHROUGH.html`**: HTML version with **interactive Mermaid diagrams** that render directly in your browser (generated automatically when multiple pages are documented)
-- **`images/`**: Folder containing all captured screenshots
+- **`output/WALKTHROUGH.md`**: Main documentation file with screenshots and descriptions
+- **`output/WALKTHROUGH.html`**: HTML version with **interactive Mermaid diagrams** that render directly in your browser (generated automatically when multiple pages are documented)
+- **`output/images/`**: Folder containing all captured screenshots
+
+The `output/` folder is automatically created if it doesn't exist.
 
 **💡 Viewing Mermaid Diagrams:**
 - **Markdown**: Use a viewer that supports Mermaid (GitHub, GitLab, VS Code with Mermaid extension, or [Mermaid Live Editor](https://mermaid.live))
