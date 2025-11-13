@@ -31,6 +31,39 @@ async function main() {
   const crawlConfig = getCrawlConfig();
   const codeAnalysisConfig = getCodeAnalysisConfig(); // Get early for route extraction
 
+  // Mode 3: Codebase only (no URLs, no crawling)
+  if (!crawlConfig.enabled && codeAnalysisConfig.enabled && codeAnalysisConfig.codebasePath) {
+    console.log("📚 Codebase-only mode: Analyzing codebase without interface documentation\n");
+    
+    // Step 1: Analyze codebase
+    console.log("📚 Step 1: Analyzing codebase...\n");
+    
+    // Phase 1: Extract code information (fast, no AI)
+    console.log("   Phase 1: Extracting code structure...\n");
+    const codeDocs = await analyzeCodebase(codeAnalysisConfig);
+    console.log(`   ✅ Extracted information from ${codeDocs.length} file(s)\n`);
+    
+    // Phase 2: Generate comprehensive analysis (AI-powered)
+    let comprehensiveAnalysis = undefined;
+    if (codeDocs.length > 0) {
+      console.log("   Phase 2: Generating comprehensive analysis...\n");
+      comprehensiveAnalysis = await generateComprehensiveAnalysis(codeDocs);
+      console.log("   ✅ Comprehensive analysis generated\n");
+    }
+
+    // Step 2: Build markdown documentation (codebase only)
+    console.log("📝 Step 2: Building markdown documentation...\n");
+    await buildMarkdown([], defaultConfig, codeDocs, comprehensiveAnalysis);
+
+    console.log("\n==================================================");
+    console.log("✅ Codebase documentation complete!");
+    console.log("==================================================\n");
+    console.log(`📄 Documentation: ${defaultConfig.outputFile}\n`);
+    
+    return; // Exit early
+  }
+
+  // Mode 1 & 2: Interface documentation (with or without code analysis)
   // Check if crawl mode is enabled
   if (crawlConfig.enabled) {
     const startUrls = getUrlsFromArgs();
@@ -212,51 +245,54 @@ async function main() {
   };
 
   try {
-    // Step 1: Capture screenshots
-    console.log("📸 Step 1: Capturing screenshots...\n");
-    const screenshots = await captureScreenshots(urls, config);
-
-    if (screenshots.length === 0) {
-      console.error("❌ No screenshots were captured. Exiting.");
-      process.exit(1);
-    }
-
-    console.log(`\n✅ Captured ${screenshots.length} screenshot(s)\n`);
-
-    // Step 2: Generate descriptions using GPT-4o Vision
-    console.log("🤖 Step 2: Generating AI descriptions...\n");
-    const pages: PageData[] = [];
-
-    for (const screenshot of screenshots) {
-      const description = await describeScreenshot(
-        screenshot.filename,
-        screenshot.title,
-        screenshot.url
-      );
-
-      pages.push({
-        title: screenshot.title,
-        url: screenshot.url,
-        filename: screenshot.filename,
-        description,
-        timestamp: screenshot.timestamp,
-        hasForm: screenshot.hasForm,
-        beforeFormFilename: screenshot.beforeFormFilename,
-        afterFormFilename: screenshot.afterFormFilename,
-      });
-
-      // Small delay to avoid rate limiting
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-
-    console.log(`\n✅ Generated ${pages.length} description(s)\n`);
-
-    // Step 3: Analyze codebase (if enabled)
+    let pages: PageData[] = [];
     let codeDocs: CodeDocumentation[] = [];
     let comprehensiveAnalysis = undefined;
-    
+
+    // Step 1: Capture screenshots (only if we have URLs)
+    if (urls.length > 0) {
+      console.log("📸 Step 1: Capturing screenshots...\n");
+      const screenshots = await captureScreenshots(urls, config);
+
+      if (screenshots.length === 0) {
+        console.error("❌ No screenshots were captured. Exiting.");
+        process.exit(1);
+      }
+
+      console.log(`\n✅ Captured ${screenshots.length} screenshot(s)\n`);
+
+      // Step 2: Generate descriptions using GPT-4o Vision
+      console.log("🤖 Step 2: Generating AI descriptions...\n");
+
+      for (const screenshot of screenshots) {
+        const description = await describeScreenshot(
+          screenshot.filename,
+          screenshot.title,
+          screenshot.url
+        );
+
+        pages.push({
+          title: screenshot.title,
+          url: screenshot.url,
+          filename: screenshot.filename,
+          description,
+          timestamp: screenshot.timestamp,
+          hasForm: screenshot.hasForm,
+          beforeFormFilename: screenshot.beforeFormFilename,
+          afterFormFilename: screenshot.afterFormFilename,
+        });
+
+        // Small delay to avoid rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      console.log(`\n✅ Generated ${pages.length} description(s)\n`);
+    }
+
+    // Step 3 (or 1 if no URLs): Analyze codebase (if enabled)
     if (config.codeAnalysis?.enabled) {
-      console.log("📚 Step 3: Analyzing codebase...\n");
+      const stepNumber = urls.length > 0 ? "3" : "1";
+      console.log(`📚 Step ${stepNumber}: Analyzing codebase...\n`);
       
       // Phase 1: Extract code information (fast, no AI)
       console.log("   Phase 1: Extracting code structure...\n");
@@ -271,8 +307,15 @@ async function main() {
       }
     }
 
-    // Step 4: Build markdown documentation
-    const stepNumber = config.codeAnalysis?.enabled ? "4" : "3";
+    // Final step: Build markdown documentation
+    let stepNumber: string;
+    if (urls.length > 0 && config.codeAnalysis?.enabled) {
+      stepNumber = "4";
+    } else if (urls.length > 0) {
+      stepNumber = "3";
+    } else {
+      stepNumber = "2";
+    }
     console.log(`📝 Step ${stepNumber}: Building markdown documentation...\n`);
     await buildMarkdown(pages, config, codeDocs, comprehensiveAnalysis);
 
@@ -281,8 +324,13 @@ async function main() {
     console.log("✅ Walkthrough generation complete!");
     console.log("=".repeat(50));
     console.log(`📄 Documentation: ${config.outputFile}`);
-    console.log(`🖼️  Screenshots: ${config.imagesDir}/`);
-    console.log(`📊 Pages documented: ${pages.length}`);
+    if (pages.length > 0) {
+      console.log(`🖼️  Screenshots: ${config.imagesDir}/`);
+      console.log(`📊 Pages documented: ${pages.length}`);
+    }
+    if (codeDocs.length > 0) {
+      console.log(`📚 Code files analyzed: ${codeDocs.length}`);
+    }
     console.log("");
   } catch (error) {
     console.error("\n❌ Error during walkthrough generation:", error);
