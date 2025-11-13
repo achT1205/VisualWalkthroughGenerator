@@ -207,28 +207,27 @@ export async function captureScreenshots(
               const finalUrl = currentUrl !== originalNormalized ? currentUrl : url;
               const finalNormalizedUrl = normalizeUrl(finalUrl);
               
-              // Only add result if this URL hasn't been captured yet
-              if (!capturedUrls.has(finalNormalizedUrl)) {
-                results.push({
-                  url: finalUrl,
-                  title: newTitle,
-                  filename: afterFormFilename,
-                  timestamp: new Date(),
-                  hasForm: true,
-                  beforeFormFilename,
-                  afterFormFilename,
-                });
-                
-                capturedUrls.add(finalNormalizedUrl);
-                console.log(`✅ Captured: ${newTitle} (with form action) - ${finalUrl}`);
-                
-                // If URL changed, mark the new URL as captured to avoid duplicate
-                if (currentUrl !== originalNormalized) {
-                  capturedUrls.add(currentUrl);
-                }
-              } else {
-                console.log(`   ⚠️  Skipping duplicate capture: ${finalUrl}`);
+              // Add result (we already checked for duplicates at the start of the loop)
+              results.push({
+                url: finalUrl,
+                title: newTitle,
+                filename: afterFormFilename,
+                timestamp: new Date(),
+                hasForm: true,
+                beforeFormFilename,
+                afterFormFilename,
+              });
+              
+              // Mark both original and final URL as captured
+              capturedUrls.add(normalizedUrl);
+              capturedUrls.add(finalNormalizedUrl);
+              
+              // If URL changed, mark the new URL as captured to avoid duplicate
+              if (currentUrl !== originalNormalized) {
+                capturedUrls.add(currentUrl);
               }
+              
+              console.log(`✅ Captured: ${newTitle} (with form action) - ${finalUrl}`);
             } else {
               // Form wasn't submitted, just use before screenshot
               results.push({
