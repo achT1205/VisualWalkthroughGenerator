@@ -99,6 +99,45 @@ async function extractLinks(page: Page, baseUrl: string): Promise<string[]> {
         if (href && href.trim()) {
           urls.push(href);
         }
+        // Also check for onclick handlers that might navigate
+        const onclick = anchor.getAttribute('onclick');
+        if (onclick) {
+          const urlMatch = onclick.match(/['"`]([\/][^'"`]+)['"`]/);
+          if (urlMatch) {
+            urls.push(`${baseUrlObj.origin}${urlMatch[1]}`);
+          }
+        }
+      }
+      
+      // 1b. Buttons and elements that might navigate (common in e-commerce)
+      const buttons = Array.from(document.querySelectorAll("button, [role='button'], .btn, [class*='button']"));
+      for (const button of buttons) {
+        const btn = button as HTMLElement;
+        // Check for data attributes
+        const dataHref = btn.getAttribute('data-href') || btn.getAttribute('data-url') || btn.getAttribute('data-link');
+        if (dataHref && dataHref.trim() && !dataHref.startsWith('#')) {
+          const absoluteUrl = dataHref.startsWith('/') 
+            ? `${baseUrlObj.origin}${dataHref}`
+            : new URL(dataHref, base).toString();
+          urls.push(absoluteUrl);
+        }
+        // Check onclick handlers
+        const onclick = btn.getAttribute('onclick');
+        if (onclick) {
+          const urlMatch = onclick.match(/['"`]([\/][^'"`]+)['"`]/);
+          if (urlMatch) {
+            urls.push(`${baseUrlObj.origin}${urlMatch[1]}`);
+          }
+        }
+        // Check if button text suggests navigation (cart, checkout, etc.)
+        const buttonText = btn.textContent?.toLowerCase() || '';
+        if (buttonText.includes('cart') || buttonText.includes('checkout') || buttonText.includes('view')) {
+          // Try to find associated link or form
+          const parentLink = btn.closest('a');
+          if (parentLink && parentLink.href) {
+            urls.push(parentLink.href);
+          }
+        }
       }
 
       // 2. React Router Links (often have 'to' attribute or data attributes)
@@ -352,13 +391,15 @@ export async function crawlWebsite(
           page.waitForSelector("[to]", { timeout: 5000 }),
           page.waitForSelector("nav", { timeout: 5000 }),
           page.waitForSelector("[role='navigation']", { timeout: 5000 }),
+          page.waitForSelector("button", { timeout: 5000 }), // Wait for buttons too
+          page.waitForSelector("[class*='product']", { timeout: 5000 }), // Wait for product elements
         ]);
       } catch {
         // Continue even if no links found
       }
       
-      // Additional wait for dynamic content
-      await page.waitForTimeout(1000);
+      // Additional wait for dynamic content (especially for e-commerce sites)
+      await page.waitForTimeout(2000); // Increased wait time for dynamic content
 
       // Get page title for screenshot naming
       const title = (await page.title()) || "Untitled Page";
