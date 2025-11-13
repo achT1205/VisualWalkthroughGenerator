@@ -145,7 +145,11 @@ export function getCodeAnalysisConfig(): CodeAnalysisConfig {
   const excludeIndex = args.indexOf("--code-exclude");
   const excludePatterns = excludeIndex !== -1 && args[excludeIndex + 1]
     ? args[excludeIndex + 1].split(",").map((p) => p.trim())
-    : ["node_modules", ".git", "dist", "build", ".next", ".cache"];
+    : [
+        "node_modules", ".git", "dist", "build", ".next", ".cache",
+        "bin", "obj", "tests", "test", "__tests__",
+        ".dll", ".pdb"
+      ];
 
   // Parse --code-include patterns
   const includeIndex = args.indexOf("--code-include");

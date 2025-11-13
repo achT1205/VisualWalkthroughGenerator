@@ -234,8 +234,16 @@ function findCodeFiles(
     for (const file of files) {
       const filePath = path.join(dir, file);
       
-      // Skip node_modules, .git, etc.
-      if (file.startsWith(".") || file === "node_modules" || file === "dist" || file === "build") {
+      // Skip common build/output directories and hidden files
+      if (file.startsWith(".") || 
+          file === "node_modules" || 
+          file === "dist" || 
+          file === "build" || 
+          file === "bin" || 
+          file === "obj" ||
+          file === "tests" ||
+          file === "test" ||
+          file === "__tests__") {
         continue;
       }
 
