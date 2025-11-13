@@ -451,9 +451,23 @@ export async function crawlWebsite(
             console.log(`   ✅ Captured screenshot: ${newTitle} (with form action) - ${finalUrl}`);
             
             // Re-extract links after form submission (new page might have loaded)
-            const linksAfterForm = await extractLinks(page, url);
+            // Use the current URL as base since we navigated to a new page
+            const linksAfterForm = await extractLinks(page, currentUrl);
             if (linksAfterForm.length > 0) {
               console.log(`   Found ${linksAfterForm.length} additional link(s) after form submission`);
+              
+              // Add these links to the queue if not already visited
+              for (const link of linksAfterForm) {
+                const normalizedLink = normalizeUrl(link);
+                if (!visited.has(normalizedLink) && !addedRoutes.has(normalizedLink)) {
+                  if (shouldIncludeUrl(normalizedLink, options) && 
+                      (!options.sameDomainOnly || isSameDomain(normalizedLink, startUrl))) {
+                    toVisit.push({ url: normalizedLink, depth: depth + 1 });
+                    addedRoutes.add(normalizedLink);
+                    console.log(`   Added link from post-form page: ${normalizedLink}`);
+                  }
+                }
+              }
             }
           } else {
             // Form wasn't submitted, just use before screenshot
@@ -490,8 +504,10 @@ export async function crawlWebsite(
         console.log(`   ✅ Captured screenshot: ${title} - ${url}`);
       }
 
-      // Extract links
-      const links = await extractLinks(page, url);
+      // Extract links from the current page
+      // Use the actual current URL (might have changed after form submission)
+      const currentPageUrl = normalizeUrl(page.url());
+      const links = await extractLinks(page, currentPageUrl);
       
       console.log(`   Found ${links.length} link(s) on this page`);
       
@@ -499,25 +515,36 @@ export async function crawlWebsite(
       let addedCount = 0;
       let skippedCount = 0;
       
-      for (const link of links) {
-        if (visited.has(link)) {
+      // Wait a bit more for dynamic content to load (especially for SPAs)
+      await page.waitForTimeout(1000);
+      
+      // Re-extract links after wait (in case of dynamic loading)
+      const linksAfterWait = await extractLinks(page, currentPageUrl);
+      const allLinks = [...new Set([...links, ...linksAfterWait])]; // Combine and deduplicate
+      
+      console.log(`   Found ${allLinks.length} total unique link(s) after waiting for dynamic content`);
+      
+      for (const link of allLinks) {
+        const normalizedLink = normalizeUrl(link);
+        if (visited.has(normalizedLink) || addedRoutes.has(normalizedLink)) {
           skippedCount++;
           continue;
         }
         
         // Check if same domain (if required)
-        if (options.sameDomainOnly && !isSameDomain(link, startUrl)) {
+        if (options.sameDomainOnly && !isSameDomain(normalizedLink, startUrl)) {
           skippedCount++;
           continue;
         }
         
         // Check if should be included
-        if (!shouldIncludeUrl(link, options)) {
+        if (!shouldIncludeUrl(normalizedLink, options)) {
           skippedCount++;
           continue;
         }
         
-        toVisit.push({ url: link, depth: depth + 1 });
+        toVisit.push({ url: normalizedLink, depth: depth + 1 });
+        addedRoutes.add(normalizedLink); // Track to avoid duplicates
         addedCount++;
       }
       
